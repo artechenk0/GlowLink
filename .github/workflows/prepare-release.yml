@@ -1,0 +1,122 @@
+name: Prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version in X.Y.Z format (without v)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Create release pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Validate release request
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "Run this workflow from main."
+            exit 1
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version must use the X.Y.Z format without a v prefix."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Check release branch does not exist
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          branch="release/v$VERSION"
+          if git ls-remote --exit-code --heads origin "$branch"; then
+            echo "Remote branch '$branch' already exists."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "v$VERSION"; then
+            echo "Tag 'v$VERSION' already exists."
+            exit 1
+          fi
+      - name: Update release metadata
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          python - <<'PY'
+          from datetime import date
+          from pathlib import Path
+          import os
+          import re
+          import tomllib
+
+          version = os.environ["VERSION"]
+          pyproject_path = Path("app/pyproject.toml")
+          pyproject = pyproject_path.read_text(encoding="utf-8")
+          current_version = tomllib.loads(pyproject)["project"]["version"]
+          if current_version == version:
+              raise SystemExit(f"Version {version} is already set in pyproject.toml.")
+          pyproject, replacements = re.subn(
+              r'(?m)^version = "[^"]+"$', f'version = "{version}"', pyproject, count=1
+          )
+          if replacements != 1:
+              raise SystemExit("Could not update project.version in pyproject.toml.")
+          pyproject_path.write_text(pyproject, encoding="utf-8")
+
+          package_path = Path("app/src/ledsetup/__init__.py")
+          package = package_path.read_text(encoding="utf-8")
+          source_version = re.search(r'(?m)^__version__ = "([^"]+)"$', package)
+          if source_version is None or source_version.group(1) != current_version:
+              raise SystemExit("pyproject.toml and ledsetup.__version__ must match before release preparation.")
+          package, replacements = re.subn(
+              r'(?m)^__version__ = "[^"]+"$', f'__version__ = "{version}"', package, count=1
+          )
+          if replacements != 1:
+              raise SystemExit("Could not update ledsetup.__version__.")
+          package_path.write_text(package, encoding="utf-8")
+
+          changelog_path = Path("CHANGELOG.md")
+          changelog = changelog_path.read_text(encoding="utf-8")
+          match = re.search(r'(?ms)^## \[Unreleased\]\n(.*?)(?=^## \[|\Z)', changelog)
+          if match is None:
+              raise SystemExit("CHANGELOG.md must contain a ## [Unreleased] section.")
+          unreleased = match.group(1).strip()
+          empty_unreleased = "\n".join(
+              ["## [Unreleased]", "", "### Added", "", "### Changed", "", "### Deprecated", "", "### Removed", "", "### Fixed", "", "### Security", ""]
+          )
+          release_notes = unreleased if unreleased else "### Changed\n\n- Release preparation."
+          release_section = f"## [{version}] - {date.today().isoformat()}\n\n{release_notes}\n\n"
+          changelog = changelog[: match.start()] + empty_unreleased + "\n" + release_section + changelog[match.end() :]
+          changelog_path.write_text(changelog, encoding="utf-8")
+          PY
+      - name: Create release branch and pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          branch="release/v$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add CHANGELOG.md app/pyproject.toml app/src/ledsetup/__init__.py
+          git commit -m "chore(release): v$VERSION"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore(release): v$VERSION" \
+            --body "Prepares v$VERSION. Merge this pull request, then create tag v$VERSION on main."
