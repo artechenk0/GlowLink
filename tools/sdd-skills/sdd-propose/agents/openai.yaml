@@ -1,0 +1,6 @@
+interface:
+  display_name: "SDD: Proposal"
+  short_description: "Ведёт спеку от цели до задач"
+  default_prompt: "Use $sdd-propose to create or advance an SDD specification."
+policy:
+  allow_implicit_invocation: false

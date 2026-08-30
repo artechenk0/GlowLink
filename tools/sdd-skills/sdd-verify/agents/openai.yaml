@@ -1,0 +1,6 @@
+interface:
+  display_name: "SDD: Verify"
+  short_description: "Проверяет спеку и документацию"
+  default_prompt: "Use $sdd-verify to verify an applied SDD specification."
+policy:
+  allow_implicit_invocation: false
