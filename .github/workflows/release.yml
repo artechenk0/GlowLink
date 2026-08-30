@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag in vX.Y.Z format"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,6 +26,8 @@ jobs:
     defaults:
       run:
         working-directory: app
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,10 +38,13 @@ jobs:
       - name: Check tag matches package version
         shell: pwsh
         run: |
-          $tagVersion = $env:GITHUB_REF_NAME -replace '^v', ''
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
+            throw "Release tag '$env:RELEASE_TAG' must use the vX.Y.Z format."
+          }
+          $tagVersion = $env:RELEASE_TAG -replace '^v', ''
           $projectVersion = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
           if ($projectVersion -ne $tagVersion) {
-            throw "Git tag '$env:GITHUB_REF_NAME' does not match pyproject.toml version '$projectVersion'."
+            throw "Release tag '$env:RELEASE_TAG' does not match pyproject.toml version '$projectVersion'."
           }
       - name: Install dependencies
         run: |
@@ -103,4 +114,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$env:GITHUB_REF_NAME" dist/* --generate-notes --title "$env:GITHUB_REF_NAME"
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: >
+          gh release create "$env:RELEASE_TAG" dist/* --repo "$env:GITHUB_REPOSITORY"
+          --generate-notes --title "$env:RELEASE_TAG"
