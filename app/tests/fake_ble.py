@@ -65,9 +65,7 @@ class FakeClient:
         self.response_flags.append(response)
         if self.fail_writes > 0:
             self.fail_writes -= 1
-            raise BleakError(
-                "Could not write value b'...' to characteristic 0016: Unreachable"
-            )
+            raise BleakError("Could not write value b'...' to characteristic 0016: Unreachable")
         self.write_calls += 1
         self.written.append(bytes(data))
 

@@ -193,6 +193,7 @@ class JsApi:
 
     def _scan_bg(self) -> None:
         self._halt_sync()
+
         async def work() -> list[DeviceHit]:
             await self._session.disconnect()
             return await self._scan_fn(timeout=self._settings.scan_timeout)
