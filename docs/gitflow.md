@@ -36,8 +36,8 @@ Allow GitHub Actions to create and approve pull requests**. Это позвол�
    ```
 
 Push тега запускает release workflow. Он проверяет соответствие тега версии в
-`app/pyproject.toml`, повторяет проверки, собирает wheel и sdist на Windows и создаёт GitHub
-Release с этими файлами. При несовпадении тега и версии публикация не начнётся.
+`app/pyproject.toml`, повторяет проверки, собирает `LEDSetup.exe`, wheel и sdist на Windows и
+создаёт GitHub Release с этими файлами. При несовпадении тега и версии публикация не начнётся.
 
 Если release workflow упал после создания тега, исправьте workflow, влейте исправление в
 `main` и запустите **Actions → Release → Run workflow**, указав существующий тег `vX.Y.Z`.
