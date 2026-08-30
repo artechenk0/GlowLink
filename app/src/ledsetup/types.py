@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable
-from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from ledsetup.ble import DeviceHit
 
-RGB: TypeAlias = tuple[int, int, int]
+type RGB = tuple[int, int, int]
 
 
 class LogFn(Protocol):
