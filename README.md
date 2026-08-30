@@ -49,5 +49,5 @@ RGB и `off` визуально проверены на Smartbuy `SBL-RGBW-KIT-7
 ## Разработка и лицензия
 
 Выполняйте `python -m pytest`, `python -m ruff check src tests` и `python -m mypy src` из
-`app/`. Правила участия — в [CONTRIBUTING.md](CONTRIBUTING.md). Проект лицензирован по
-[MIT](LICENSE).
+`app/`. Для изменений поведения и архитектуры следуйте [SDD-гайду](docs/sdd.md). Правила участия
+— в [CONTRIBUTING.md](CONTRIBUTING.md). Проект лицензирован по [MIT](LICENSE).

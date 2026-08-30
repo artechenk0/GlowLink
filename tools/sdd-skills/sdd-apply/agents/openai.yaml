@@ -1,0 +1,6 @@
+interface:
+  display_name: "SDD: Apply"
+  short_description: "Реализует одобренную SDD-спеку"
+  default_prompt: "Use $sdd-apply to implement the approved SDD specification."
+policy:
+  allow_implicit_invocation: false
