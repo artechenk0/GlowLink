@@ -7,7 +7,7 @@ name = "ledsetup"
 version = "0.1.0"
 description = "CLI for one analog RGB Smartbuy/Zengge LEDnetWF strip over BLE"
 license = "MIT"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "bleak>=0.22",
     "pywebview>=5.0",
@@ -17,8 +17,11 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "pytest>=8",
+    "pytest-cov>=5",
     "ruff>=0.8",
     "mypy>=1.13",
+    "build>=1.2",
+    "pre-commit>=4",
 ]
 
 [project.scripts]
@@ -38,7 +41,7 @@ addopts = "-q"
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -50,7 +53,7 @@ ignore = [
 ]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 packages = ["ledsetup"]
 mypy_path = "src"
