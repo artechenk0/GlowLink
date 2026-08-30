@@ -1,53 +1,44 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Structure
 
-The application lives in `app/` and uses a `src` layout. Production Python code is in
-`app/src/ledsetup/`; the CLI entry point is `cli.py`, while `gui.py`, `gui_api.py`, and
-`gui_bridge.py` support the desktop interface. BLE protocol and device behavior belong in
-`ble.py`, `protocol.py`, and `device.py`; screen-color synchronization is implemented in
-`capture.py` and `sync_loop.py`. Web UI assets are in `app/src/ledsetup/web/`.
+The Python package is `app/src/ledsetup/`; tests are `app/tests/`; desktop assets are
+`app/src/ledsetup/web/`; project documentation is `docs/`.
 
-Tests are in `app/tests/`, with matching `test_<module>.py` names. Shared BLE and screen
-test doubles are `fake_ble.py` and `fake_screen.py`. Keep protocol research and technical
-notes in `docs/`.
+Keep entry points and UI adapters in `cli.py`, `gui.py`, `gui_api.py`, `gui_bridge.py`, and
+`web/`. Put shared user actions in an application-scenario module when they serve more than
+one UI. Put LEDnetWF frames in `protocol.py`, BLE/GATT transport in `ble.py`, held links in
+`session.py`, and OS integration in adapters such as `capture.py` and `paths.py`. UI must not
+access `BleakClient` or GATT details directly.
 
-## Build, Test, and Development Commands
+## Development
 
-Run commands from `app/`:
+Run from `app/` with Python 3.11+:
 
 ```powershell
-python -m pip install -e ".[test]"  # install app plus test and quality tools
-python -m pytest                     # run the complete test suite
-python -m ruff check src tests       # lint and check import ordering
-python -m mypy src                   # run strict type checking
-python -m ledsetup --help            # inspect the installed CLI
+python -m pip install -e ".[test]"
+python -m pytest
+python -m ruff check src tests
+python -m mypy src
+python -m ledsetup --help
 ```
 
-Use Python 3.11 or newer. Install dependencies into a virtual environment rather than
-committing generated environments or build output.
+Use four spaces, annotations in production code, snake_case names, PascalCase classes,
+UPPER_SNAKE_CASE constants, and lines up to 100 characters.
 
-## Coding Style & Naming Conventions
+## Tests and documentation
 
-Use four-space indentation, type annotations for all production code, and idiomatic
-snake_case for modules, functions, variables, and test names. Classes use PascalCase;
-constants use UPPER_SNAKE_CASE. Keep lines at or below 100 characters. Ruff enforces
-error, import, modern-Python, bugbear, simplification, and Ruff-specific rules; mypy runs
-in strict mode. Prefer focused modules and explicit error handling around BLE and GUI
-boundaries.
+Add unit tests as `app/tests/test_<module>.py`; use `fake_ble.py` and `fake_screen.py` so they
+need no hardware. Integration tests cover scenario-to-adapter boundaries with fakes. Record
+manual device runs under `docs/hardware-tests/` and summarize verified outcomes in
+`docs/device-compatibility.md`.
 
-## Testing Guidelines
+Update documentation whenever CLI, protocol, compatibility, or UX changes. An experimental
+command remains experimental until it is reproducibly checked on hardware and the protocol
+notes and compatibility matrix are updated.
 
-Write pytest tests alongside the relevant behavior as `test_<feature>.py`; name test
-functions `test_<expected_behavior>()`. Exercise new protocol commands, settings changes,
-and synchronization control paths without requiring physical BLE hardware by using the
-existing fakes. Run pytest, Ruff, and mypy before submitting changes; this repository has
-no separate coverage threshold configured.
+## Contributions
 
-## Commit & Pull Request Guidelines
-
-Recent history uses concise imperative subjects, such as `Enhance LEDSetup functionality`
-and `Remove project documentation and specs`. Keep each commit narrow and describe the
-user-visible change. Pull requests should explain the behavior change, list validation
-commands run, link any related issue, and include screenshots for GUI or web-asset changes.
-Call out device-specific assumptions and any testing that requires real hardware.
+Use branches named `codex/<short-task>`. Keep one task per logical PR and do not mix a
+refactor with a feature change. PRs state the behaviour, validation commands, relevant issue,
+and any required hardware test or UI screenshot.
