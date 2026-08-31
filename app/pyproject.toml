@@ -5,7 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ledsetup"
 version = "0.3.0"
-description = "GlowLink control for one analog RGB Smartbuy/Zengge LEDnetWF strip over BLE"
+description = "GlowLink control for one analog RGB lighting controller over BLE"
+readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
@@ -25,7 +26,7 @@ test = [
 ]
 
 [project.scripts]
-ledsetup = "ledsetup.cli:main"
+ledsetup = "ledsetup.presentation.cli.app_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

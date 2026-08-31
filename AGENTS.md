@@ -7,21 +7,26 @@ The Python package is `app/src/ledsetup/`; tests are `app/tests/`; desktop asset
 
 Keep entry points and UI adapters in `cli.py`, `gui.py`, `gui_api.py`, `gui_bridge.py`, and
 `web/`. Put shared user actions in an application-scenario module when they serve more than
-one UI. Put LEDnetWF frames in `protocol.py`, BLE/GATT transport in `ble.py`, held links in
+one UI. Put protocol frames in `protocol.py`, BLE/GATT transport in `ble.py`, held links in
 `session.py`, and OS integration in adapters such as `capture.py` and `paths.py`. UI must not
 access `BleakClient` or GATT details directly.
 
 ## Development
 
-Run from `app/` with Python 3.11+:
+Run from `app/` with the repository virtual environment. Python 3.12 is required by
+`app/pyproject.toml`; do not rely on a globally installed `python` command:
 
 ```powershell
-python -m pip install -e ".[test]"
-python -m pytest
-python -m ruff check src tests
-python -m mypy src
-python -m ledsetup --help
+.venv\Scripts\python.exe -m pip install -e ".[test]"
+.venv\Scripts\python.exe -m pytest
+.venv\Scripts\python.exe -m ruff check src tests
+.venv\Scripts\python.exe -m mypy src
+.venv\Scripts\python.exe -m ledsetup --help
 ```
+
+In PowerShell, activate the environment with `.venv\Scripts\Activate.ps1` when convenient;
+otherwise use the explicit `.venv\Scripts\python.exe` path above. All Python commands and
+tests must run from `app/`.
 
 Use four spaces, annotations in production code, snake_case names, PascalCase classes,
 UPPER_SNAKE_CASE constants, and lines up to 100 characters.
