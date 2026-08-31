@@ -49,5 +49,8 @@ approvals:
 `approvals.technical: approved` и `stage: ready-to-apply` в `README.md`. Не реализуйте код в
 этой команде.
 
+Следуйте общим правилам из `docs/standards/development.md`, `docs/standards/writing.md` и
+`docs/standards/sdd.md`.
+
 Для компактного заполненного примера читайте
 `docs/specs/example-device-status/README.md`, только если он помогает текущей задаче.

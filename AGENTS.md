@@ -1,5 +1,16 @@
 # Repository Guidelines
 
+## Project standards
+
+Shared project recommendations for people and agent environments are in
+`docs/standards/README.md`. Before changing code, documentation, workflow, or architecture, read
+the applicable standard there. Keep this file for mandatory repository constraints; do not copy
+the standards into agent-specific instructions.
+
+Before drafting, reviewing, or revising any repository text, follow
+`.agents/documentation-editor/SKILL.md` and `docs/standards/writing.md`. This includes
+documentation, skills, UI and CLI copy, messages, comments, and changelog entries.
+
 ## Structure
 
 The Python package is `app/src/ledsetup/`; tests are `app/tests/`; desktop assets are
