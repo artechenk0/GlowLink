@@ -19,6 +19,20 @@
 
 ### Security
 
+## [0.4.1] - 2026-08-31
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [0.4.0] - 2026-08-31
 
 ### Added
