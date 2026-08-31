@@ -1,6 +1,6 @@
 """GlowLink: one analog RGB LEDnetWF strip. Advertised name is not a stable ID."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 # Last seen on this kit (2026-08-25). Name can change; use BLE address.
 LAST_SEEN_NAME = "LEDnetWF0200086B1AAC"
