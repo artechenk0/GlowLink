@@ -1,5 +1,7 @@
 # Changelog
 
+[English](CHANGELOG.en.md) | **Русский**
+
 Все заметные изменения проекта документируются здесь. Формат основан на
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) и следует Semantic Versioning.
 
@@ -9,6 +11,8 @@
 
 ### Changed
 
+- Перестроена навигация и сценарии в пользовательской и разработческой документации.
+- Добавлены английские версии основной пользовательской и разработческой документации.
 - CLI, terminal menu и GUI переведены на единый лёгкий application facade.
 - Конфигурация получила tolerant schema version 1 и независимый fallback полей.
 

@@ -25,7 +25,7 @@ Allow GitHub Actions to create and approve pull requests**. Это позвол�
 
 1. Запустите workflow **Prepare release** из `main` и укажите версию `X.Y.Z` без префикса `v`.
    Он создаст `release/vX.Y.Z` и pull request, обновляющий `app/pyproject.toml`, версию CLI и
-   changelog. Проверьте и влейте этот PR.
+   оба changelog (`CHANGELOG.md` и `CHANGELOG.en.md`). Проверьте и влейте этот PR.
 2. После merge в `main` создайте и отправьте аннотированный тег на этот commit:
 
    ```powershell

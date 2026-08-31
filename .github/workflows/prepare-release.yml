@@ -89,19 +89,29 @@ jobs:
               raise SystemExit("Could not update ledsetup.__version__.")
           package_path.write_text(package, encoding="utf-8")
 
-          changelog_path = Path("CHANGELOG.md")
-          changelog = changelog_path.read_text(encoding="utf-8")
-          match = re.search(r'(?ms)^## \[Unreleased\]\n(.*?)(?=^## \[|\Z)', changelog)
-          if match is None:
-              raise SystemExit("CHANGELOG.md must contain a ## [Unreleased] section.")
-          unreleased = match.group(1).strip()
           empty_unreleased = "\n".join(
               ["## [Unreleased]", "", "### Added", "", "### Changed", "", "### Deprecated", "", "### Removed", "", "### Fixed", "", "### Security", ""]
           )
-          release_notes = unreleased if unreleased else "### Changed\n\n- Release preparation."
-          release_section = f"## [{version}] - {date.today().isoformat()}\n\n{release_notes}\n\n"
-          changelog = changelog[: match.start()] + empty_unreleased + "\n" + release_section + changelog[match.end() :]
-          changelog_path.write_text(changelog, encoding="utf-8")
+
+          def prepare_changelog(path: Path, fallback_note: str) -> None:
+              changelog = path.read_text(encoding="utf-8")
+              match = re.search(r'(?ms)^## \[Unreleased\]\n(.*?)(?=^## \[|\Z)', changelog)
+              if match is None:
+                  raise SystemExit(f"{path} must contain a ## [Unreleased] section.")
+              unreleased = match.group(1).strip()
+              release_notes = unreleased if unreleased else fallback_note
+              release_section = f"## [{version}] - {date.today().isoformat()}\n\n{release_notes}\n\n"
+              updated = (
+                  changelog[: match.start()]
+                  + empty_unreleased
+                  + "\n"
+                  + release_section
+                  + changelog[match.end() :]
+              )
+              path.write_text(updated, encoding="utf-8")
+
+          prepare_changelog(Path("CHANGELOG.md"), "### Changed\n\n- Подготовка релиза.")
+          prepare_changelog(Path("CHANGELOG.en.md"), "### Changed\n\n- Release preparation.")
           PY
       - name: Create release branch and pull request
         env:
@@ -112,7 +122,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add CHANGELOG.md app/pyproject.toml app/src/ledsetup/__init__.py
+          git add CHANGELOG.md CHANGELOG.en.md app/pyproject.toml app/src/ledsetup/__init__.py
           git commit -m "chore(release): v$VERSION"
           git push --set-upstream origin "$branch"
           gh pr create \
