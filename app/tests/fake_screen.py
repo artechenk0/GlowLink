@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ledsetup.capture import MonitorInfo
-from ledsetup.types import RGB
+from ledsetup.adapters.screen.mss_capture import MonitorInfo
+from ledsetup.domain.value_objects.rgb import RGB
 
 
 class SolidGrabber:

@@ -360,7 +360,7 @@
         <div class="menu" id="menu" hidden>
           <button type="button" data-modal="settings">Настройки</button>
           <button type="button" data-modal="diagnostic">Диагностика подключения</button>
-          <button type="button" class="danger-text" data-modal="forget">Забыть ленту</button>
+          <button type="button" class="danger-text" data-modal="forget">Забыть устройство</button>
         </div>
       </div>
     </header>
@@ -368,7 +368,7 @@
     <section class="view" id="control-view">
       <section class="device">
         <i class="dot" id="link-dot"></i><strong id="link-label">Лента подключена</strong>
-        <span>LEDnetWF · …:A4</span>
+        <span>Контроллер · …:A4</span>
         <button class="text-button" id="connection-toggle">Отключить</button>
       </section>
       <nav class="tabs" aria-label="Режим управления">
@@ -427,7 +427,7 @@
         </button>
         <p class="hint" id="sync-hint">Во время синхронизации ручной выбор цвета будет недоступен.</p>
       </section>
-      <button class="link" id="change-device">Сменить ленту</button>
+      <button class="link" id="change-device">Сменить устройство</button>
     </section>
 
     <section class="view" id="device-view" hidden>
@@ -435,14 +435,14 @@
       <div class="empty-icon">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
       </div>
-      <h2>Подключите ленту</h2>
-      <p class="lead">Включите ленту и Bluetooth. Мы покажем подходящие устройства рядом.</p>
-      <button class="primary" id="scan">Найти ленту</button>
+      <h2>Подключите контроллер</h2>
+      <p class="lead">Включите RGB-подсветку и Bluetooth. Мы покажем устройства рядом.</p>
+      <button class="primary" id="scan">Найти устройства</button>
       <div id="scan-state"></div>
       <div class="device-list" id="device-list" hidden>
-        <button class="device-card" data-device="LEDnetWF · …:A4">
+        <button class="device-card" data-device="Контроллер · …:A4">
           <span class="device-mark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg></span>
-          <span><strong>LEDnetWF</strong><small>Уровень сигнала: отличный</small></span>
+          <span><strong>Контроллер</strong><small>Уровень сигнала: отличный</small></span>
           <span class="badge">Рекомендуем</span>
         </button>
         <button class="device-card" data-device="ELK-BLEDOM · …:7F">
@@ -468,7 +468,7 @@
   <template id="settings-template">
     <div class="sheet-head"><div><p class="eyebrow">Служебное</p><h2>Настройки</h2></div><button class="icon-button close">✕</button></div>
     <div class="field-group"><label>Время поиска, сек.</label><input class="field" type="number" value="8"><span class="hint">Сколько ждать появления лент рядом.</span></div>
-    <div class="field-group"><label>Время подключения, сек.</label><input class="field" type="number" value="12"><span class="hint">Увеличьте, если лента отвечает не сразу.</span></div>
+    <div class="field-group"><label>Время подключения, сек.</label><input class="field" type="number" value="12"><span class="hint">Увеличьте, если контроллер отвечает не сразу.</span></div>
     <div class="toggle-row">
       <span class="toggle-copy"><strong>Подробная диагностика</strong><small>Добавлять сведения GATT после команд</small></span>
       <label class="switch"><input type="checkbox"><span></span></label>
@@ -478,7 +478,7 @@
   <template id="diagnostic-template">
     <div class="sheet-head"><div><p class="eyebrow">Подключение</p><h2>Диагностика</h2></div><button class="icon-button close">✕</button></div>
     <p class="lead">Технические данные помогают понять, куда приложение отправляет команды.</p>
-    <pre class="diagnostic">Устройство: LEDnetWF (…:A4)
+    <pre class="diagnostic">Устройство: Контроллер (…:A4)
 Состояние: подключено
 Сервис: 0000fff0-0000-1000-8000-00805f9b34fb
 Запись: 0000fff3-0000-1000-8000-00805f9b34fb
@@ -488,9 +488,9 @@
   </template>
   <template id="forget-template">
     <div class="confirm">
-      <div class="confirm-icon">!</div><h2>Забыть эту ленту?</h2>
-      <p class="lead">LEDnetWF будет удалена из приложения. Чтобы управлять ей снова, потребуется новый поиск.</p>
-      <div class="row"><button class="secondary close">Отмена</button><button class="danger-button" data-action="forget">Забыть ленту</button></div>
+      <div class="confirm-icon">!</div><h2>Забыть это устройство?</h2>
+      <p class="lead">Устройство будет удалено из приложения. Чтобы управлять им снова, потребуется новый поиск.</p>
+      <div class="row"><button class="secondary close">Отмена</button><button class="danger-button" data-action="forget">Забыть устройство</button></div>
     </div>
   </template>
   <template id="color-template">
@@ -571,51 +571,19 @@
       let value = 1;
       const clamp = (value) => Math.max(0, Math.min(255, Number(value) || 0));
       const toHex = () => '#' + rgb.map((input) => clamp(input.value).toString(16).padStart(2, '0')).join('').toUpperCase();
-      const hsvToRgb = (h, s, v) => {
-        const c = v * s;
-        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-        const m = v - c;
-        const parts = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] :
-          h < 180 ? [0, c, x] : h < 240 ? [0, x, c] :
-          h < 300 ? [x, 0, c] : [c, 0, x];
-        return parts.map((part) => Math.round((part + m) * 255));
-      };
-      const rgbToHsv = (red, green, blue) => {
-        const [r, g, b] = [red, green, blue].map((item) => clamp(item) / 255);
-        const max = Math.max(r, g, b);
-        const min = Math.min(r, g, b);
-        const delta = max - min;
-        let h = 0;
-        if (delta && max === r) h = 60 * (((g - b) / delta) % 6);
-        else if (delta && max === g) h = 60 * ((b - r) / delta + 2);
-        else if (delta) h = 60 * ((r - g) / delta + 4);
-        return [(h + 360) % 360, max ? delta / max : 0, max];
-      };
       const paintArea = () => {
         area.style.setProperty('--picker-hue', hue.value);
         cursor.style.left = `${saturation * 100}%`;
         cursor.style.top = `${(1 - value) * 100}%`;
         area.setAttribute('aria-valuetext', hex.value.toUpperCase());
       };
-      const applyHsv = () => {
-        const selected = hsvToRgb(Number(hue.value), saturation, value);
-        selected.forEach((channel, index) => { rgb[index].value = channel; });
-        hex.value = toHex();
-        paintArea();
-      };
       const applyRgb = (channels) => {
-        const [h, s, v] = rgbToHsv(...channels);
-        if (s > 0) hue.value = Math.round(h);
-        saturation = s;
-        value = v;
         hex.value = toHex();
-        paintArea();
       };
       const pickAt = (clientX, clientY) => {
         const bounds = area.getBoundingClientRect();
         saturation = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
         value = 1 - Math.max(0, Math.min(1, (clientY - bounds.top) / bounds.height));
-        applyHsv();
       };
       area.addEventListener('pointerdown', (event) => {
         area.setPointerCapture(event.pointerId);
@@ -632,9 +600,7 @@
         else if (event.key === 'ArrowDown') value = Math.max(0, value - step);
         else return;
         event.preventDefault();
-        applyHsv();
       });
-      hue.oninput = applyHsv;
       rgb.forEach((input) => input.oninput = () => applyRgb(rgb.map((item) => item.value)));
       hex.oninput = () => {
         if (!/^#[0-9a-f]{6}$/i.test(hex.value)) return;

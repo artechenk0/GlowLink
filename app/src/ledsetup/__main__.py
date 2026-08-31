@@ -1,3 +1,3 @@
-from ledsetup.cli import main
+from ledsetup.presentation.cli.app_cli import main
 
 raise SystemExit(main())
