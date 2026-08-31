@@ -7,6 +7,20 @@
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.3.0] - 2026-08-31
+
+### Added
+
 - Бренд GlowLink в интерфейсе и готовом Windows-приложении.
 - Иконки GlowLink для окна, favicon и исполняемого файла.
 
