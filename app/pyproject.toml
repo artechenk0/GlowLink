@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ledsetup"
-version = "0.3.0"
+version = "0.4.0"
 description = "GlowLink control for one analog RGB lighting controller over BLE"
 readme = "README.md"
 license = "MIT"
