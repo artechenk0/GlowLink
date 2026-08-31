@@ -120,7 +120,6 @@ jobs:
               path.write_text(updated, encoding="utf-8")
 
           prepare_changelog(Path("CHANGELOG.md"), "### Changed\n\n- Подготовка релиза.")
-          prepare_changelog(Path("CHANGELOG.en.md"), "### Changed\n\n- Release preparation.")
           PY
       - name: Create release branch and pull request
         env:
@@ -131,7 +130,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add CHANGELOG.md CHANGELOG.en.md app/pyproject.toml app/src/ledsetup/__init__.py
+          git add CHANGELOG.md app/pyproject.toml app/src/ledsetup/__init__.py
           git commit -m "chore(release): v$VERSION"
           git push --set-upstream origin "$branch"
           gh pr create --base main --head "$branch" \
