@@ -1,6 +1,6 @@
-# LEDSetup
+# GlowLink
 
-LEDSetup управляет одной аналоговой RGB-лентой Zengge LEDnetWF по Bluetooth Low Energy из
+GlowLink управляет одной аналоговой RGB-лентой Zengge LEDnetWF по Bluetooth Low Energy из
 Windows. Лента получает один общий цвет; адресные ленты, сегменты и подсветка периметра не
 поддерживаются. Полные границы продукта — в [product scope](docs/product-scope.md).
 
@@ -24,7 +24,7 @@ ledsetup
 
 ## Установка готовой версии
 
-На странице [Releases](../../releases) скачайте `LEDSetup.exe` из раздела Assets и запустите
+На странице [Releases](../../releases) скачайте `GlowLink.exe` из раздела Assets и запустите
 его двойным кликом. Python и отдельная установка пакета не нужны. Для окна управления требуется
 Microsoft Edge WebView2 Runtime; он обычно уже установлен в Windows 10 и 11.
 

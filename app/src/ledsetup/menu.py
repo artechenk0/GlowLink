@@ -92,7 +92,7 @@ def parse_rgb_line(raw: str) -> RGB:
 
 
 def format_header(selected: SelectedDevice | None, connected: bool) -> list[str]:
-    lines = [f"LEDSetup {__version__}"]
+    lines = [f"GlowLink {__version__}"]
     if selected is None:
         lines.append("устройство: не выбрано")
         return lines

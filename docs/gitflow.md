@@ -1,6 +1,6 @@
 # Упрощённый Gitflow
 
-LEDSetup использует одну постоянную ветку — `main`. Она содержит стабильный код и должна быть
+GlowLink использует одну постоянную ветку — `main`. Она содержит стабильный код и должна быть
 защищена в GitHub: прямые push не допускаются, изменения попадают в неё только через pull
 request с успешным CI.
 
@@ -36,7 +36,7 @@ Allow GitHub Actions to create and approve pull requests**. Это позвол�
    ```
 
 Push тега запускает release workflow. Он проверяет соответствие тега версии в
-`app/pyproject.toml`, повторяет проверки, собирает `LEDSetup.exe`, wheel и sdist на Windows и
+`app/pyproject.toml`, повторяет проверки, собирает `GlowLink.exe`, wheel и sdist на Windows и
 создаёт GitHub Release с этими файлами. При несовпадении тега и версии публикация не начнётся.
 
 Если release workflow упал после создания тега, исправьте workflow, влейте исправление в

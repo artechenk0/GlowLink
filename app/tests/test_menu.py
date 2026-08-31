@@ -94,7 +94,7 @@ def test_main_menu_and_exit(tmp_path: Path) -> None:
     )
     assert code == 0
     text = "\n".join(lines)
-    assert "LEDSetup" in text
+    assert "GlowLink" in text
     assert "устройство: не выбрано" in text
     assert "1. Сканировать и выбрать устройство" in text
     assert "7. Настройки" in text

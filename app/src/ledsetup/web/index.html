@@ -1,82 +1,28 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LEDSetup</title>
-  <link rel="stylesheet" href="app.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GlowLink</title>
+  <link rel="icon" type="image/png" sizes="256x256" href="glowlink.png">
+  <link rel="stylesheet" href="app.css">
 </head>
-<body class="screen-device">
-  <div class="app">
-    <header class="top">
-      <div>
-        <h1>LEDSetup</h1>
-        <p class="muted">Вся лента — один цвет</p>
-      </div>
-      <div class="top-actions" id="top-actions" hidden>
-        <button type="button" class="text-btn" id="btn-gatt">GATT</button>
-        <button type="button" class="text-btn" id="btn-settings">Настройки</button>
-      </div>
-    </header>
-
-    <section id="view-device" class="view">
-      <p class="kicker">Шаг 1 из 2</p>
-      <h2>Какая лента?</h2>
-      <p class="lead">Имя в Bluetooth может меняться. Запоминаем адрес.</p>
-      <button type="button" class="primary" id="btn-scan">Найти ленту</button>
-      <p class="status" id="device-status"></p>
-      <div id="device-list" class="cards"></div>
+<body>
+  <main class="app">
+    <header class="top"><div><p class="eyebrow">Управление лентой</p><h1>GlowLink</h1></div><div class="settings" id="menu-wrap"><button class="icon-button" id="more" aria-label="Дополнительные действия" aria-expanded="false">•••</button><div class="menu" id="menu" hidden><button type="button" data-modal="settings">Настройки</button><button type="button" class="danger-text" data-modal="forget">Забыть ленту</button></div></div></header>
+    <section class="view" id="control-view" aria-busy="true">
+      <section class="device"><i class="dot" id="link-dot"></i><strong id="link-label">Лента подключена</strong><span id="device-label">LEDnetWF</span><button class="text-button" id="connection-toggle">Отключить</button></section>
+      <nav class="tabs" aria-label="Режим управления"><span class="tab-indicator" id="tab-indicator"></span><button class="tab active" data-tab="color">Цвет</button><button class="tab" data-tab="screen">Экран</button></nav>
+      <section class="panel" id="color-panel"><div class="section-head"><h3>Текущий цвет</h3><span class="hint">Управление доступно</span></div><div class="preview" id="color-preview"><small id="color-name">Красный</small><span class="preview-code" id="color-code">#FF554D</span></div><button class="power" id="power"><span>Включено</span></button><div class="section-head"><h3>Быстрый выбор</h3></div><div class="presets" id="presets"><button class="preset" data-color="#FFD070" data-name="Тёплый"><i class="swatch" style="--swatch:#ffd070"></i>Тёплый</button><button class="preset" data-color="#B9E8FF" data-name="Холодный"><i class="swatch" style="--swatch:#b9e8ff"></i>Холодный</button><button class="preset active" data-color="#FF554D" data-name="Красный"><i class="swatch" style="--swatch:#ff554d"></i>Красный</button><button class="preset" data-color="#4BC56A" data-name="Зелёный"><i class="swatch" style="--swatch:#4bc56a"></i>Зелёный</button><button class="preset" data-color="#3C73F5" data-name="Синий"><i class="swatch" style="--swatch:#3c73f5"></i>Синий</button></div><button class="secondary custom" id="custom-color">⚙ <span>Свой цвет</span></button></section>
+      <section class="panel" id="screen-panel" hidden><h2>Синхронизация с экраном</h2><p class="lead">Лента повторяет средний цвет выбранного монитора — одним цветом, без зон.</p><div class="field-group"><label id="monitor-label">Монитор</label><div class="custom-select" id="monitor-select"><button class="select-trigger" id="monitor-trigger" type="button" aria-haspopup="listbox" aria-expanded="false"><span id="monitor-value">Выберите монитор</span><span class="select-chevron" aria-hidden="true"></span></button><div class="select-options" id="monitor-options" role="listbox" hidden></div></div></div><div class="preview screen-preview" id="screen-preview"><small>Средний цвет экрана</small><span class="preview-code" id="screen-code">—</span></div><button class="power" id="sync"><span>Начать синхронизацию</span></button><p class="hint" id="sync-hint">Во время синхронизации ручной выбор цвета будет недоступен.</p></section>
+      <button class="link" id="change-device">Сменить ленту</button><p class="status" id="color-status" hidden></p>
     </section>
-
-    <section id="view-color" class="view" hidden>
-      <button type="button" class="text-btn back" id="btn-back">← Сменить ленту</button>
-      <div class="status-row">
-        <span class="dot" id="link-dot"></span>
-        <span id="link-text">Не подключено</span>
-        <span class="sep">·</span>
-        <span id="device-label" class="muted"></span>
-        <button type="button" class="ghost small" id="btn-toggle">Подключить</button>
-      </div>
-      <p class="kicker">Шаг 2 из 2</p>
-      <h2>Цвет</h2>
-      <div class="color-layout">
-        <div class="color-main">
-          <div class="strip" id="strip">
-            <span>лента</span>
-          </div>
-          <p class="rgb" id="rgb-readout">255  40  40</p>
-          <div class="picker">
-            <canvas id="sv" width="280" height="280"></canvas>
-            <canvas id="hue" width="280" height="18"></canvas>
-          </div>
-          <div class="presets" id="presets"></div>
-          <div class="power">
-            <button type="button" class="danger" id="btn-off">Выключить</button>
-            <div class="on-wrap">
-              <button type="button" class="ghost" id="btn-on">Включить</button>
-              <span class="on-note">гипотеза, на ките не проверяли</span>
-            </div>
-          </div>
-        </div>
-        <aside class="sync-panel" id="sync-panel">
-          <p class="kicker sync-kicker">Экран</p>
-          <h3>Средний цвет монитора</h3>
-          <p class="lead-sm">Вся лента одним RGB, не периметр и не зоны.</p>
-          <label for="monitor-select">Монитор</label>
-          <select id="monitor-select" class="field"></select>
-          <button type="button" class="primary" id="btn-sync">Экран → лента</button>
-          <div class="sync-preview" id="sync-preview"><span>превью</span></div>
-          <p class="rgb" id="sync-rgb"></p>
-          <p class="status" id="sync-status"></p>
-        </aside>
-      </div>
-      <p class="status" id="color-status"></p>
-    </section>
-  </div>
-
-  <div class="overlay" id="overlay" hidden>
-    <div class="sheet" id="sheet"></div>
-  </div>
+    <section class="view" id="device-view" hidden><button class="text-button" id="device-back">← Вернуться к управлению</button><div class="empty-icon"><svg class="bluetooth-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17m0 0 10-10"/></svg></div><h2>Подключите ленту</h2><p class="lead">Включите ленту и Bluetooth. Мы покажем подходящие устройства рядом.</p><button class="primary" id="scan">Найти ленту</button><div id="scan-state"></div><div class="device-list" id="device-list" hidden></div><button class="secondary" id="scan-again" hidden>Искать снова</button></section>
+  </main>
+  <div class="overlay" id="overlay" hidden><section class="sheet" id="sheet" role="dialog" aria-modal="true"></section></div><div class="toast" id="toast" hidden></div><div class="boot-layer" id="boot-layer" aria-live="polite"><span class="boot-spinner"></span></div>
+  <template id="settings-template"><div class="sheet-head"><div><p class="eyebrow">Служебное</p><h2>Настройки</h2></div><button class="icon-button close">✕</button></div><div class="field-group"><label>Время поиска, сек.</label><input class="field" id="set-scan" type="number" value="8"></div><div class="field-group"><label>Время подключения, сек.</label><input class="field" id="set-conn" type="number" value="12"></div><p class="status" id="set-status" hidden></p><button class="primary" data-action="save">Сохранить настройки</button></template>
+  <template id="forget-template"><div class="confirm"><div class="confirm-icon">!</div><h2>Забыть эту ленту?</h2><p class="lead">Устройство будет удалено из приложения. Чтобы управлять им снова, потребуется новый поиск.</p><div class="row"><button class="secondary close">Отмена</button><button class="danger-button" data-action="forget">Забыть ленту</button></div></div></template>
+  <template id="color-template"><div class="sheet-head"><div><p class="eyebrow">Точная настройка</p><h2>Свой цвет</h2></div><button class="icon-button close">✕</button></div><div class="color-picker-area" id="picker-area" role="slider" tabindex="0"><span class="picker-cursor" id="picker-cursor"></span></div><div class="field-group"><label for="hue">Оттенок</label><input class="hue-slider" id="hue" type="range" min="0" max="360" value="2"></div><div class="exact-grid"><div class="field-group"><label>R</label><input class="field rgb" type="number" min="0" max="255" value="255"></div><div class="field-group"><label>G</label><input class="field rgb" type="number" min="0" max="255" value="85"></div><div class="field-group"><label>B</label><input class="field rgb" type="number" min="0" max="255" value="77"></div></div><div class="field-group"><label>HEX</label><input class="field" id="hex" value="#FF554D" maxlength="7"></div><div class="recent-colors" id="recent-colors" hidden><label>Последние цвета</label><div class="recent-colors-list" id="recent-colors-list"></div></div><div class="row"><button class="secondary close">Отмена</button><button class="primary" data-action="apply">Применить цвет</button></div></template>
   <script src="app.js"></script>
 </body>
 </html>

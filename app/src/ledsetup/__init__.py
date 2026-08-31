@@ -1,4 +1,4 @@
-"""LEDSetup: one analog RGB LEDnetWF strip. Advertised name is not a stable ID."""
+"""GlowLink: one analog RGB LEDnetWF strip. Advertised name is not a stable ID."""
 
 __version__ = "0.2.0"
 
