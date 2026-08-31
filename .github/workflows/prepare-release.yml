@@ -41,6 +41,10 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Check existing release state
         env:
           GH_TOKEN: ${{ github.token }}
@@ -121,6 +125,9 @@ jobs:
 
           prepare_changelog(Path("CHANGELOG.md"), "### Changed\n\n- Подготовка релиза.")
           PY
+      - name: Update lockfile
+        working-directory: app
+        run: uv lock
       - name: Create release branch and pull request
         env:
           GH_TOKEN: ${{ github.token }}
@@ -130,7 +137,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add CHANGELOG.md app/pyproject.toml app/src/ledsetup/__init__.py
+          git add CHANGELOG.md app/pyproject.toml app/src/ledsetup/__init__.py app/uv.lock
           git commit -m "chore(release): v$VERSION"
           git push --set-upstream origin "$branch"
           gh pr create --base main --head "$branch" \
