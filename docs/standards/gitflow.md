@@ -21,12 +21,16 @@ request с успешным CI.
 
 Перед первым запуском включите в GitHub **Settings → Actions → General → Workflow permissions →
 Allow GitHub Actions to create and approve pull requests**. Это позволяет workflow создавать PR
-через встроенный `GITHUB_TOKEN`; отдельный секрет не нужен.
+через встроенный `GITHUB_TOKEN`; отдельный секрет не нужен. После отправки release-ветки
+`Prepare release` явно запускает CI с `workflow_dispatch`, поэтому автоматически созданный PR не
+нужно вручную разблокировать для запуска проверки.
 
-1. Запустите workflow **Prepare release** из `main` и укажите версию `X.Y.Z` без префикса `v`.
-   Он создаст `release/vX.Y.Z` и pull request, обновляющий `app/pyproject.toml`, версию CLI и
-   оба changelog (`CHANGELOG.md` и `CHANGELOG.en.md`). Проверьте и влейте этот PR.
-2. После merge в `main` создайте и отправьте аннотированный тег на этот commit:
+1. Запустите workflow **Prepare release** именно из `main` и укажите версию `X.Y.Z` без префикса
+   `v`. Он создаст `release/vX.Y.Z` и pull request, обновляющий `app/pyproject.toml`, версию CLI
+   и оба changelog (`CHANGELOG.md` и `CHANGELOG.en.md`).
+2. Дождитесь CI для release-PR. Ожидаются проверки **Verify (Python 3.12)** и **Build and install
+   package**. Проверьте изменения и влейте PR в `main`.
+3. После merge в `main` создайте и отправьте аннотированный тег на этот commit:
 
    ```powershell
    git checkout main
@@ -35,12 +39,22 @@ Allow GitHub Actions to create and approve pull requests**. Это позвол�
    git push origin vX.Y.Z
    ```
 
-Push тега запускает release workflow. Он проверяет соответствие тега версии в
-`app/pyproject.toml`, повторяет проверки, собирает `GlowLink.exe`, wheel и sdist на Windows и
-создаёт GitHub Release с этими файлами. При несовпадении тега и версии публикация не начнётся.
+Push тега запускает release workflow. Он проверяет формат и наличие тега, checkout-ит именно его
+commit, проверяет соответствие версии в `app/pyproject.toml`, повторяет quality-проверки, собирает
+`GlowLink.exe`, wheel и sdist на Windows и создаёт GitHub Release с этими файлами. Concurrency
+группируется по имени тега, поэтому параллельные повторы одного релиза не смешивают артефакты.
 
-Если release workflow упал после создания тега, исправьте workflow, влейте исправление в
-`main` и запустите **Actions → Release → Run workflow**, указав существующий тег `vX.Y.Z`.
+Если Release упал после создания тега, исправьте workflow, влейте исправление в `main` и запустите
+**Actions → Release → Run workflow**, указав существующий тег `vX.Y.Z`. Ручной retry снова checkout-ит
+этот тег, а не последний commit `main`, поэтому новые коммиты после выпуска не попадут в артефакты.
+
+Повтор **Prepare release** безопасен: если корректная `release/vX.Y.Z` уже отправлена, workflow
+создаст отсутствующий PR и заново запустит CI. Если ветка занята другой версией или уже существует
+тег, workflow завершится с ошибкой и ничего не перезапишет.
+
+CI и Release устанавливают зависимости только из `app/uv.lock` и CI-группы `ci`, включающей test,
+build и PyInstaller. Dependabot еженедельно предлагает обновления GitHub Actions и зависимостей;
+такие PR нужно проверять обычным CI и принимать отдельно от релизного PR.
 
 Для срочного исправления создайте `hotfix/vX.Y.Z` от `main`, внесите минимальную правку,
 влейте её через PR в `main` и выпустите соответствующий тег.

@@ -1,0 +1,30 @@
+name: GlowLink quality checks
+description: Install locked CI dependencies and run the shared quality checks.
+inputs:
+  working-directory:
+    description: Directory containing pyproject.toml
+    required: false
+    default: app
+runs:
+  using: composite
+  steps:
+    - name: Install locked dependencies
+      shell: pwsh
+      working-directory: ${{ inputs.working-directory }}
+      run: uv sync --locked --group ci
+    - name: Test and publish coverage summary
+      shell: pwsh
+      working-directory: ${{ inputs.working-directory }}
+      run: uv run --no-sync python -m pytest --cov=ledsetup --cov-report=term-missing --cov-report="markdown-append:$env:GITHUB_STEP_SUMMARY"
+    - name: Check formatting
+      shell: pwsh
+      working-directory: ${{ inputs.working-directory }}
+      run: uv run --no-sync python -m ruff format --check src tests
+    - name: Lint
+      shell: pwsh
+      working-directory: ${{ inputs.working-directory }}
+      run: uv run --no-sync python -m ruff check src tests
+    - name: Type check
+      shell: pwsh
+      working-directory: ${{ inputs.working-directory }}
+      run: uv run --no-sync python -m mypy src
