@@ -23,12 +23,13 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      actions: write
     steps:
       - name: Validate release request
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          if [ "$GITHUB_REF_NAME" != "main" ]; then
+          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
             echo "Run this workflow from main."
             exit 1
           fi
@@ -36,22 +37,36 @@ jobs:
             echo "Version must use the X.Y.Z format without a v prefix."
             exit 1
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
           fetch-depth: 0
-      - name: Check release branch does not exist
+      - name: Check existing release state
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
           branch="release/v$VERSION"
-          if git ls-remote --exit-code --heads origin "$branch"; then
-            echo "Remote branch '$branch' already exists."
-            exit 1
-          fi
-          if git ls-remote --exit-code --tags origin "v$VERSION"; then
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION"; then
             echo "Tag 'v$VERSION' already exists."
             exit 1
+          fi
+          if git ls-remote --exit-code --heads origin "refs/heads/$branch"; then
+            git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
+            branch_version=$(git show "origin/$branch:app/pyproject.toml" | python -c 'import sys, tomllib; print(tomllib.load(sys.stdin.buffer)["project"]["version"])')
+            source_version=$(git show "origin/$branch:app/src/ledsetup/__init__.py" | sed -n 's/^__version__ = "\([^"]*\)"$/\1/p')
+            if [[ "$branch_version" != "$VERSION" || "$source_version" != "$VERSION" ]]; then
+              echo "Release branch '$branch' exists but does not contain version $VERSION; refusing to overwrite it."
+              exit 1
+            fi
+            open_prs=$(gh pr list --base main --head "$branch" --state open --json number --jq 'length')
+            if [[ "$open_prs" == "0" ]]; then
+              gh pr create --base main --head "$branch" \
+                --title "chore(release): v$VERSION" \
+                --body "Prepares v$VERSION. Merge this pull request, then create tag v$VERSION on main."
+            fi
+            gh workflow run ci.yml --ref "$branch"
+            exit 0
           fi
       - name: Update release metadata
         env:
@@ -101,13 +116,7 @@ jobs:
               unreleased = match.group(1).strip()
               release_notes = unreleased if unreleased else fallback_note
               release_section = f"## [{version}] - {date.today().isoformat()}\n\n{release_notes}\n\n"
-              updated = (
-                  changelog[: match.start()]
-                  + empty_unreleased
-                  + "\n"
-                  + release_section
-                  + changelog[match.end() :]
-              )
+              updated = changelog[: match.start()] + empty_unreleased + "\n" + release_section + changelog[match.end() :]
               path.write_text(updated, encoding="utf-8")
 
           prepare_changelog(Path("CHANGELOG.md"), "### Changed\n\n- Подготовка релиза.")
@@ -125,8 +134,7 @@ jobs:
           git add CHANGELOG.md CHANGELOG.en.md app/pyproject.toml app/src/ledsetup/__init__.py
           git commit -m "chore(release): v$VERSION"
           git push --set-upstream origin "$branch"
-          gh pr create \
-            --base main \
-            --head "$branch" \
+          gh pr create --base main --head "$branch" \
             --title "chore(release): v$VERSION" \
             --body "Prepares v$VERSION. Merge this pull request, then create tag v$VERSION on main."
+          gh workflow run ci.yml --ref "$branch"
