@@ -85,7 +85,7 @@ jobs:
       - name: Build Windows executable
         run: >
           python -m PyInstaller --noconfirm --clean --onefile --windowed --name GlowLink
-          --icon src/ledsetup/web/glowlink.ico --paths src
+          --icon "$env:GITHUB_WORKSPACE/app/src/ledsetup/web/glowlink.ico" --paths src
           --collect-data ledsetup --collect-all webview --collect-all bleak --collect-all mss
           --collect-all winrt --distpath dist --workpath build/pyinstaller
           --specpath build/pyinstaller src/ledsetup/__main__.py

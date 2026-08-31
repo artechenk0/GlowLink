@@ -22,5 +22,7 @@ ADR фиксирует решение, которое меняет архите�
 
 Текущие решения: [0001](0001-ble-address-is-identity.md),
 [0002](0002-sync-keeps-one-connection.md),
-[0003](0003-experimental-protocol-is-separated.md),
-[0004](0004-ui-hides-gatt.md).
+[0004](0004-ui-hides-gatt.md),
+[0005](0005-hexagonal-architecture.md),
+[0006](0006-unified-config.md),
+[0007](0007-lightweight-layered-architecture.md).

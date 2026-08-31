@@ -6,8 +6,13 @@ from collections.abc import Iterator
 
 from bleak.exc import BleakError
 
-from ledsetup.ble import NOTIFY_UUID, SERVICE_UUID, WRITE_UUID, uuids_equal
-from ledsetup.types import BleClient, DisconnectFn
+from ledsetup.adapters.ble.transport import (
+    PROTOCOL_NOTIFY_UUID,
+    PROTOCOL_SERVICE_UUID,
+    PROTOCOL_WRITE_UUID,
+    uuids_equal,
+)
+from ledsetup.adapters.ble.types import BleClient, DisconnectFn
 
 
 class FakeChar:
@@ -39,7 +44,7 @@ class FakeServices:
 
 
 class FakeClient:
-    def __init__(self, address: str = "E4:98:BB:6B:1A:AC") -> None:
+    def __init__(self, address: str = "AA:BB:CC:DD:EE:FF") -> None:
         self.address = address
         self.is_connected = False
         self.connect_calls = 0
@@ -48,9 +53,9 @@ class FakeClient:
         self.fail_writes = 0
         self.written: list[bytes] = []
         self.response_flags: list[bool] = []
-        write = FakeChar(WRITE_UUID, ("write", "write-without-response"), 22)
-        notify = FakeChar(NOTIFY_UUID, ("notify", "read"), 19)
-        self.services = FakeServices([FakeService(SERVICE_UUID, [write, notify])])
+        write = FakeChar(PROTOCOL_WRITE_UUID, ("write", "write-without-response"), 22)
+        notify = FakeChar(PROTOCOL_NOTIFY_UUID, ("notify", "read"), 19)
+        self.services = FakeServices([FakeService(PROTOCOL_SERVICE_UUID, [write, notify])])
 
     async def connect(self) -> None:
         self.connect_calls += 1
