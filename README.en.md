@@ -7,7 +7,7 @@ BLE controller. You can select a controller, turn the strip on or off, set one c
 the average colour of one monitor to it.
 
 > Addressable strips, zones, independently controlled devices, and perimeter Ambilight are not
-> supported. See the complete boundaries in the [product scope](docs/product-scope.en.md).
+> supported. See the complete boundaries in the [product scope](docs/product-scope.md).
 
 ## Get started
 
@@ -70,12 +70,12 @@ The `on` and `color --hsv` commands are experimental and should not be relied on
 ## Compatibility and help
 
 RGB and `off` have only been visually verified on Smartbuy `SBL-RGBW-KIT-75` (Zengge LEDnetWF).
-See the verified status and limitations in the [compatibility matrix](docs/device-compatibility.en.md).
-Technical GATT and frame observations are in the [protocol notes](docs/protocol-notes.en.md).
+See the verified status and limitations in the [compatibility matrix](docs/device-compatibility.md).
+Technical GATT and frame observations are in the [protocol notes](docs/protocol-notes.md).
 
-The rest of the documentation is listed in the [documentation index](docs/README.en.md).
+The rest of the documentation is listed in the [documentation index](docs/README.md).
 
 ## Contributing
 
-See [CONTRIBUTING.en.md](CONTRIBUTING.en.md) for checks, branches, and pull requests. The project
+See [CONTRIBUTING.md](CONTRIBUTING.md) for checks, branches, and pull requests. The project
 is licensed under the [MIT License](LICENSE).
