@@ -15,10 +15,21 @@ from ledsetup.settings import load_settings
 from ledsetup.types import ScanFn
 
 WEB_INDEX = Path(__file__).resolve().parent / "web" / "index.html"
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 760
+WEB_ICON = WEB_INDEX.parent / "glowlink.ico"
+APP_TITLE = "GlowLink"
+WINDOW_WIDTH = 820
+WINDOW_HEIGHT = 820
 
-__all__ = ["WEB_INDEX", "WINDOW_HEIGHT", "WINDOW_WIDTH", "AsyncBridge", "JsApi", "run_gui"]
+__all__ = [
+    "APP_TITLE",
+    "WEB_ICON",
+    "WEB_INDEX",
+    "WINDOW_HEIGHT",
+    "WINDOW_WIDTH",
+    "AsyncBridge",
+    "JsApi",
+    "run_gui",
+]
 
 
 def run_gui(
@@ -47,7 +58,7 @@ def run_gui(
         return 1
 
     window = webview.create_window(
-        "LEDSetup",
+        APP_TITLE,
         url=str(WEB_INDEX),
         js_api=api,
         width=WINDOW_WIDTH,
@@ -73,8 +84,8 @@ def run_gui(
     window.events.closed += _closed
     _ = auto_connect
     try:
-        webview.start(gui="edgechromium")
+        webview.start(gui="edgechromium", icon=str(WEB_ICON) if WEB_ICON.is_file() else None)
     except Exception:
         # Fallback if WebView2/edgechromium is missing; pywebview picks another backend.
-        webview.start()
+        webview.start(icon=str(WEB_ICON) if WEB_ICON.is_file() else None)
     return 0

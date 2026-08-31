@@ -26,9 +26,16 @@ def test_save_and_load_roundtrip(tmp_path: Path) -> None:
         connect_timeout=20.0,
         verbose_gatt_after_write=True,
         monitor_id="0,0,1920x1080",
+        last_color=(12, 34, 56),
     )
     save_settings(original, path)
     assert load_settings(path) == original
+
+
+def test_invalid_saved_color_uses_default(tmp_path: Path) -> None:
+    path = tmp_path / "settings.json"
+    path.write_text('{"last_color": [300, 1, 2]}', encoding="utf-8")
+    assert load_settings(path).last_color == (255, 85, 77)
 
 
 def test_corrupt_file_falls_back(tmp_path: Path) -> None:

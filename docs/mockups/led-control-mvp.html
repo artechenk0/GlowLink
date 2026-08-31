@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GlowLink — полный прототип</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0c10; --surface: #14151c; --surface-2: #20212a;
+      --hover: #1b1d26; --line: #2c2e38; --text: #f3f1ec;
+      --muted: #a1a0a8; --accent: #ff554d; --good: #43c77a;
+      --blue: #76b8ff; --danger: #ff8d87;
+      font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh; margin: 0; display: grid; place-items: center;
+      padding: 24px; color: var(--text); overflow-x: hidden;
+      background: radial-gradient(circle at 50% -30%, #222633, var(--bg) 50%);
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .45; }
+    [hidden] { display: none !important; }
+    .app {
+      width: min(100%, 720px); min-height: 620px; padding: 28px;
+      border: 1px solid var(--line); border-radius: 24px;
+      background: rgba(15, 16, 22, .94); box-shadow: 0 24px 80px #0006;
+      animation: enter .5s cubic-bezier(.2,.8,.2,1) both;
+    }
+    .top, .device, .tabs, .power, .presets, .section-head, .device-card,
+    .status, .sheet-head, .row, .toggle-row { display: flex; align-items: center; }
+    .top, .section-head, .sheet-head, .toggle-row { justify-content: space-between; }
+    .top { margin-bottom: 22px; }
+    .eyebrow {
+      margin: 0 0 3px; color: var(--muted); font-size: 12px; font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase;
+    }
+    h1 { margin: 0; font-size: 25px; letter-spacing: -.04em; }
+    h2 { margin: 0 0 8px; font-size: 22px; letter-spacing: -.025em; }
+    h3 { margin: 0; font-size: 17px; }
+    p { line-height: 1.45; }
+    .lead { max-width: 540px; margin: 0 0 24px; color: var(--muted); }
+    .hint { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+    .icon {
+      width: 20px; height: 20px; fill: none; stroke: currentColor;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .icon-button {
+      display: grid; place-items: center; width: 38px; height: 38px; padding: 0;
+      border: 0; border-radius: 10px; color: var(--muted); background: transparent;
+    }
+    .icon-button:hover { color: var(--text); background: var(--surface); }
+    .settings { position: relative; }
+    .menu {
+      position: absolute; z-index: 5; top: 42px; right: 0; width: 235px;
+      padding: 6px; border: 1px solid var(--line); border-radius: 12px;
+      background: var(--surface-2); box-shadow: 0 12px 32px #0008;
+      animation: panel-in .18s ease both;
+    }
+    .menu button {
+      width: 100%; padding: 11px; border: 0; border-radius: 8px;
+      color: var(--text); background: transparent; text-align: left;
+    }
+    .menu button:hover { background: #30323e; }
+    .menu .danger-text { color: #ff9d98; }
+    .device {
+      gap: 10px; min-width: 0; padding: 15px 16px;
+      border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+    }
+    .dot {
+      width: 10px; height: 10px; flex: 0 0 auto; border-radius: 50%;
+      background: var(--good); box-shadow: 0 0 0 0 #43c77a77;
+      animation: pulse 2.4s ease-out infinite;
+    }
+    .dot.offline { background: #777985; box-shadow: none; animation: none; }
+    .device strong { font-size: 14px; }
+    .device span {
+      overflow: hidden; margin-left: auto; color: var(--muted);
+      text-overflow: ellipsis; white-space: nowrap; font-size: 14px;
+    }
+    .text-button {
+      padding: 0; border: 0; color: var(--blue); background: transparent;
+      font-size: 13px;
+    }
+    .tabs {
+      position: relative; gap: 4px; margin: 22px 0 28px; padding: 4px;
+      border-radius: 13px; background: var(--surface);
+    }
+    .tab {
+      position: relative; z-index: 1; width: 50%; padding: 11px; border: 0;
+      border-radius: 9px; color: var(--muted); background: transparent;
+      font-weight: 650;
+    }
+    .tab.active { color: var(--text); }
+    .tab-indicator {
+      position: absolute; inset: 4px auto 4px 4px; width: calc(50% - 4px);
+      border-radius: 9px; background: #272936; box-shadow: 0 1px 3px #0004;
+      transition: transform .3s cubic-bezier(.2,.8,.2,1);
+    }
+    .tab-indicator.screen { transform: translateX(100%); }
+    .view, .panel { animation: panel-in .3s cubic-bezier(.2,.8,.2,1) both; }
+    .section-head { gap: 16px; margin-bottom: 12px; }
+    .preview {
+      height: 172px; display: flex; align-items: end; justify-content: space-between;
+      padding: 18px; border-radius: 18px; color: #170d0d;
+      background: var(--accent); transition: background .2s, opacity .2s;
+    }
+    .preview small {
+      font-weight: 750; letter-spacing: .08em; text-transform: uppercase;
+    }
+    .preview-code {
+      padding: 5px 8px; border-radius: 8px; background: #0002;
+      font-size: 12px; font-weight: 700;
+    }
+    .power {
+      justify-content: center; gap: 10px; width: 100%; margin: 18px 0 30px;
+      padding: 16px; border: 1px solid #61cb8f; border-radius: 999px;
+      color: #07140b; background: var(--good); font-size: 17px; font-weight: 750;
+      transition: transform .2s, background .25s, color .25s, border-color .25s;
+    }
+    .power:hover { transform: translateY(-2px); }
+    .power.off { border-color: var(--line); color: var(--text); background: var(--surface); }
+    .presets {
+      display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px;
+    }
+    .preset {
+      display: grid; gap: 9px; justify-items: center; min-width: 0; padding: 10px 4px;
+      border: 1px solid transparent; border-radius: 14px; color: var(--muted);
+      background: transparent; font-size: 12px; transition: color .2s, background .2s, border-color .2s;
+    }
+    .swatch {
+      width: 48px; height: 48px; border: 2px solid #ffffff40;
+      border-radius: 50%; background: var(--swatch); box-shadow: inset 0 0 0 1px #0003;
+    }
+    .preset:hover, .preset.active { color: var(--text); background: var(--surface); }
+    .preset.active { border-color: #41434f; }
+    .preset:hover .swatch, .preset.active .swatch {
+      outline: 3px solid white; outline-offset: 3px;
+    }
+    .primary, .secondary, .danger-button {
+      width: 100%; min-height: 50px; padding: 13px 16px;
+      border-radius: 12px; font-weight: 700;
+    }
+    .primary { border: 1px solid #82c2ff; color: #07101a; background: var(--blue); }
+    .secondary { border: 1px solid var(--line); color: var(--text); background: var(--surface); }
+    .danger-button { border: 1px solid #633; color: #ffaaa5; background: #2a1719; }
+    .primary:hover { background: #92caff; }
+    .secondary:hover { background: var(--hover); }
+    .custom {
+      display: flex; align-items: center; justify-content: flex-start;
+      gap: 14px; margin-top: 24px; padding-inline: 22px;
+      font-size: 18px;
+    }
+    .custom .icon { flex: 0 0 auto; }
+    .link {
+      display: block; width: fit-content; margin: 26px auto 0;
+      border: 0; color: var(--blue); background: transparent;
+    }
+    .screen-preview {
+      margin: 16px 0; color: #fff;
+      background: linear-gradient(135deg, #5771b5, #e9ae82);
+    }
+    .field-group { display: grid; gap: 7px; margin-bottom: 17px; }
+    label { color: #d6d4cf; font-size: 14px; font-weight: 650; }
+    .field {
+      width: 100%; min-height: 48px; padding: 11px 13px;
+      border: 1px solid var(--line); border-radius: 11px;
+      color: var(--text); background: var(--surface); outline: none;
+    }
+    .field:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #76b8ff20; }
+    .custom-select { position: relative; }
+    .select-trigger {
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+      width: 100%; min-height: 50px; padding: 11px 14px;
+      border: 1px solid var(--line); border-radius: 12px;
+      color: var(--text); background: var(--surface); text-align: left;
+      transition: border-color .2s, background .2s, box-shadow .2s;
+    }
+    .select-trigger:hover { border-color: #454854; background: var(--hover); }
+    .select-trigger:focus-visible, .custom-select.open .select-trigger {
+      border-color: var(--blue); outline: none; box-shadow: 0 0 0 3px #76b8ff20;
+    }
+    .select-chevron {
+      width: 18px; height: 18px; flex: 0 0 auto; color: #f3f1ec;
+      transition: transform .22s cubic-bezier(.2,.8,.2,1);
+    }
+    .custom-select.open .select-chevron { transform: rotate(180deg); }
+    .select-options {
+      position: absolute; z-index: 7; top: calc(100% + 8px); left: 0; right: 0;
+      display: grid; gap: 3px; padding: 6px;
+      border: 1px solid #393b46; border-radius: 13px;
+      background: var(--surface-2); box-shadow: 0 18px 42px #000a;
+      transform-origin: top; animation: select-in .18s cubic-bezier(.2,.8,.2,1) both;
+    }
+    .select-option {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      width: 100%; min-height: 44px; padding: 10px 11px; border: 0;
+      border-radius: 9px; color: var(--text); background: transparent; text-align: left;
+    }
+    .select-option:hover, .select-option:focus-visible {
+      outline: none; background: #30323e;
+    }
+    .select-option[aria-selected="true"] { color: #b9dcff; }
+    .select-check { width: 18px; height: 18px; opacity: 0; color: var(--blue); }
+    .select-option[aria-selected="true"] .select-check { opacity: 1; }
+    .status {
+      gap: 10px; margin: 18px 0; padding: 13px 14px;
+      border: 1px solid var(--line); border-radius: 12px;
+      color: var(--muted); background: var(--surface); font-size: 14px;
+    }
+    .status.good { border-color: #285d40; color: #a0e9bc; background: #102219; }
+    .status.busy { border-color: #36536d; color: #b8dcff; background: #111e2a; }
+    .spinner {
+      width: 16px; height: 16px; flex: 0 0 auto;
+      border: 2px solid #76b8ff55; border-top-color: var(--blue);
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    .empty-icon {
+      display: grid; place-items: center; width: 58px; height: 58px;
+      margin: 24px 0 18px; border: 1px solid var(--line);
+      border-radius: 18px; color: var(--blue); background: var(--surface);
+    }
+    .empty-icon .icon, .device-mark .icon { display: block; }
+    .device-list { display: grid; gap: 10px; margin: 18px 0; }
+    .device-card {
+      width: 100%; gap: 13px; padding: 15px; border: 1px solid var(--line);
+      border-radius: 14px; color: var(--text); background: var(--surface);
+      text-align: left; transition: border-color .2s, background .2s, transform .2s;
+    }
+    .device-card:hover {
+      border-color: #565966; background: var(--hover); transform: translateY(-2px);
+    }
+    .device-mark {
+      display: grid; place-items: center; width: 42px; height: 42px;
+      flex: 0 0 auto; border-radius: 12px; color: var(--blue); background: #1b2b3a;
+    }
+    .device-card strong, .device-card small { display: block; }
+    .device-card small { margin-top: 3px; color: var(--muted); }
+    .badge {
+      margin-left: auto; padding: 5px 8px; border-radius: 999px;
+      color: #a0e9bc; background: #183326; font-size: 11px; font-weight: 750;
+    }
+    .signal { margin-left: auto; color: var(--muted); font-size: 13px; }
+    .overlay {
+      position: fixed; z-index: 10; inset: 0; display: grid; place-items: center;
+      padding: 24px; background: #050609c9; backdrop-filter: blur(7px);
+      animation: fade .18s ease both;
+    }
+    .sheet {
+      width: min(100%, 560px); max-height: min(88vh, 720px); overflow: auto;
+      padding: 24px; border: 1px solid #393b46; border-radius: 20px;
+      background: #111219; box-shadow: 0 24px 80px #000b;
+      animation: sheet-in .28s cubic-bezier(.2,.8,.2,1) both;
+    }
+    .sheet-head { gap: 16px; margin-bottom: 20px; }
+    .sheet-head h2 { margin: 0; }
+    .exact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .color-picker-area {
+      position: relative; height: 270px; margin-bottom: 18px; overflow: hidden;
+      border: 1px solid #ffffff30; border-radius: 15px;
+      background-color: hsl(var(--picker-hue, 2) 100% 50%);
+      box-shadow: inset 0 0 0 1px #0003; cursor: crosshair;
+      touch-action: none; user-select: none;
+    }
+    .color-picker-area::before, .color-picker-area::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+    }
+    .color-picker-area::before {
+      background: linear-gradient(90deg, #fff, transparent);
+    }
+    .color-picker-area::after {
+      background: linear-gradient(0deg, #000, transparent);
+    }
+    .picker-cursor {
+      position: absolute; z-index: 1; left: 70%; top: 0%; width: 22px; height: 22px;
+      border: 3px solid #fff; border-radius: 50%; box-shadow: 0 1px 5px #000c;
+      transform: translate(-50%, -50%); pointer-events: none;
+    }
+    .hue-slider {
+      height: 18px; margin: 2px 0; border-radius: 999px;
+      background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+      appearance: none; accent-color: transparent;
+    }
+    .hue-slider::-webkit-slider-thumb {
+      width: 22px; height: 22px; border: 3px solid #fff; border-radius: 50%;
+      background: transparent; box-shadow: 0 1px 5px #000b; appearance: none;
+    }
+    .hue-slider::-moz-range-thumb {
+      width: 16px; height: 16px; border: 3px solid #fff; border-radius: 50%;
+      background: transparent; box-shadow: 0 1px 5px #000b;
+    }
+    input[type="range"] { width: 100%; accent-color: var(--blue); }
+    .toggle-row { gap: 20px; padding: 14px 0; border-top: 1px solid var(--line); }
+    .toggle-copy strong, .toggle-copy small { display: block; }
+    .toggle-copy small { margin-top: 3px; color: var(--muted); }
+    .switch { position: relative; width: 46px; height: 27px; flex: 0 0 auto; }
+    .switch input { position: absolute; opacity: 0; }
+    .switch span { position: absolute; inset: 0; border-radius: 999px; background: #353743; }
+    .switch span::after {
+      content: ""; position: absolute; top: 4px; left: 4px; width: 19px;
+      height: 19px; border-radius: 50%; background: white; transition: .2s;
+    }
+    .switch input:checked + span { background: var(--blue); }
+    .switch input:checked + span::after { transform: translateX(19px); }
+    .diagnostic {
+      min-height: 160px; margin: 0 0 18px; padding: 14px; overflow: auto;
+      border: 1px solid var(--line); border-radius: 12px;
+      color: #c6c8d4; background: #090a0e;
+      font: 12px/1.55 "Cascadia Mono", Consolas, monospace; white-space: pre-wrap;
+    }
+    .confirm { text-align: center; }
+    .confirm-icon {
+      display: grid; place-items: center; width: 58px; height: 58px;
+      margin: 0 auto 16px; border-radius: 18px;
+      color: #ff9d98; background: #2a1719;
+    }
+    .row { gap: 10px; }
+    .row > * { flex: 1; }
+    .toast {
+      position: fixed; z-index: 20; left: 50%; bottom: 24px;
+      max-width: calc(100% - 32px); padding: 12px 16px;
+      border: 1px solid #356047; border-radius: 12px;
+      color: #b4f0ca; background: #14251b; box-shadow: 0 10px 32px #0009;
+      transform: translateX(-50%); animation: toast-in .25s ease both;
+    }
+    @keyframes enter { from { opacity: 0; transform: translateY(16px) scale(.985); } }
+    @keyframes panel-in { from { opacity: 0; transform: translateY(8px); } }
+    @keyframes sheet-in { from { opacity: 0; transform: translateY(16px) scale(.98); } }
+    @keyframes select-in { from { opacity: 0; transform: translateY(-5px) scale(.985); } }
+    @keyframes fade { from { opacity: 0; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 70% { box-shadow: 0 0 0 0 #43c77a77; } 100% { box-shadow: 0 0 0 8px transparent; } }
+    @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+    @media (max-width: 520px) {
+      body { padding: 0; place-items: stretch; }
+      .app { min-height: 100vh; padding: 22px 16px 80px; border: 0; border-radius: 0; }
+      .device { flex-wrap: wrap; }
+      .device span { width: calc(100% - 20px); margin-left: 20px; }
+      .preview { height: 150px; }
+      .swatch { width: 40px; height: 40px; }
+      .preset { font-size: 11px; }
+      .overlay { align-items: end; padding: 0; }
+      .sheet { width: 100%; max-height: 92vh; border-radius: 22px 22px 0 0; padding: 22px 16px 28px; }
+      .exact-grid { grid-template-columns: 1fr; }
+      .badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div><p class="eyebrow">Управление лентой</p><h1>GlowLink</h1></div>
+      <div class="settings" id="menu-wrap">
+        <button class="icon-button" id="more" aria-label="Дополнительные действия" aria-expanded="false">•••</button>
+        <div class="menu" id="menu" hidden>
+          <button type="button" data-modal="settings">Настройки</button>
+          <button type="button" data-modal="diagnostic">Диагностика подключения</button>
+          <button type="button" class="danger-text" data-modal="forget">Забыть ленту</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="view" id="control-view">
+      <section class="device">
+        <i class="dot" id="link-dot"></i><strong id="link-label">Лента подключена</strong>
+        <span>LEDnetWF · …:A4</span>
+        <button class="text-button" id="connection-toggle">Отключить</button>
+      </section>
+      <nav class="tabs" aria-label="Режим управления">
+        <span class="tab-indicator" id="tab-indicator"></span>
+        <button class="tab active" data-tab="color">Цвет</button>
+        <button class="tab" data-tab="screen">Экран</button>
+      </nav>
+      <section class="panel" id="color-panel">
+        <div class="section-head"><h3>Текущий цвет</h3><span class="hint">Управление доступно</span></div>
+        <div class="preview" id="color-preview">
+          <small id="color-name">Красный</small><span class="preview-code" id="color-code">#FF554D</span>
+        </div>
+        <button class="power" id="power">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v9m5.25-5.25a7.5 7.5 0 1 1-10.5 0"/></svg>
+          <span>Включено</span>
+        </button>
+        <div class="section-head"><h3>Быстрый выбор</h3></div>
+        <div class="presets">
+          <button class="preset" data-color="#FFD070" data-name="Тёплый"><i class="swatch" style="--swatch:#ffd070"></i>Тёплый</button>
+          <button class="preset" data-color="#B9E8FF" data-name="Холодный"><i class="swatch" style="--swatch:#b9e8ff"></i>Холодный</button>
+          <button class="preset active" data-color="#FF554D" data-name="Красный"><i class="swatch" style="--swatch:#ff554d"></i>Красный</button>
+          <button class="preset" data-color="#4BC56A" data-name="Зелёный"><i class="swatch" style="--swatch:#4bc56a"></i>Зелёный</button>
+          <button class="preset" data-color="#3C73F5" data-name="Синий"><i class="swatch" style="--swatch:#3c73f5"></i>Синий</button>
+        </div>
+        <button class="secondary custom" id="custom-color">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16M9 6a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM18 12a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM12 18a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z"/></svg>
+          Свой цвет
+        </button>
+      </section>
+      <section class="panel" id="screen-panel" hidden>
+        <h2>Синхронизация с экраном</h2>
+        <p class="lead">Лента повторяет средний цвет выбранного монитора — одним цветом, без зон.</p>
+        <div class="field-group">
+          <label id="monitor-label">Монитор</label>
+          <div class="custom-select" id="monitor-select">
+            <button class="select-trigger" id="monitor-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="monitor-label monitor-value">
+              <span id="monitor-value">Основной монитор · 1920 × 1080</span>
+              <svg class="icon select-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5"/></svg>
+            </button>
+            <div class="select-options" id="monitor-options" role="listbox" aria-labelledby="monitor-label" hidden>
+              <button class="select-option" type="button" role="option" aria-selected="true" data-value="Основной монитор · 1920 × 1080">
+                <span>Основной монитор · 1920 × 1080</span>
+                <svg class="icon select-check" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+              </button>
+              <button class="select-option" type="button" role="option" aria-selected="false" data-value="Монитор 2 · 2560 × 1440">
+                <span>Монитор 2 · 2560 × 1440</span>
+                <svg class="icon select-check" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="preview screen-preview"><small>Средний цвет экрана</small><span class="preview-code">128 · 151 · 184</span></div>
+        <button class="power" id="sync">
+          <svg class="icon" viewBox="0 0 24 24"><path id="sync-icon" d="m8.25 5.25 9 6.75-9 6.75V5.25Z"/></svg>
+          <span>Начать синхронизацию</span>
+        </button>
+        <p class="hint" id="sync-hint">Во время синхронизации ручной выбор цвета будет недоступен.</p>
+      </section>
+      <button class="link" id="change-device">Сменить ленту</button>
+    </section>
+
+    <section class="view" id="device-view" hidden>
+      <button class="text-button" id="device-back">← Вернуться к управлению</button>
+      <div class="empty-icon">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+      </div>
+      <h2>Подключите ленту</h2>
+      <p class="lead">Включите ленту и Bluetooth. Мы покажем подходящие устройства рядом.</p>
+      <button class="primary" id="scan">Найти ленту</button>
+      <div id="scan-state"></div>
+      <div class="device-list" id="device-list" hidden>
+        <button class="device-card" data-device="LEDnetWF · …:A4">
+          <span class="device-mark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg></span>
+          <span><strong>LEDnetWF</strong><small>Уровень сигнала: отличный</small></span>
+          <span class="badge">Рекомендуем</span>
+        </button>
+        <button class="device-card" data-device="ELK-BLEDOM · …:7F">
+          <span class="device-mark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg></span>
+          <span><strong>ELK-BLEDOM</strong><small>Уровень сигнала: хороший</small></span>
+          <span class="signal">−62 dBm</span>
+        </button>
+        <button class="device-card" data-device="Unknown · …:2C">
+          <span class="device-mark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg></span>
+          <span><strong>Неизвестное устройство</strong><small>Может не поддерживаться</small></span>
+          <span class="signal">−79 dBm</span>
+        </button>
+      </div>
+      <button class="secondary" id="scan-again" hidden>Искать снова</button>
+    </section>
+  </main>
+
+  <div class="overlay" id="overlay" hidden>
+    <section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+
+  <template id="settings-template">
+    <div class="sheet-head"><div><p class="eyebrow">Служебное</p><h2>Настройки</h2></div><button class="icon-button close">✕</button></div>
+    <div class="field-group"><label>Время поиска, сек.</label><input class="field" type="number" value="8"><span class="hint">Сколько ждать появления лент рядом.</span></div>
+    <div class="field-group"><label>Время подключения, сек.</label><input class="field" type="number" value="12"><span class="hint">Увеличьте, если лента отвечает не сразу.</span></div>
+    <div class="toggle-row">
+      <span class="toggle-copy"><strong>Подробная диагностика</strong><small>Добавлять сведения GATT после команд</small></span>
+      <label class="switch"><input type="checkbox"><span></span></label>
+    </div>
+    <button class="primary" data-action="save">Сохранить настройки</button>
+  </template>
+  <template id="diagnostic-template">
+    <div class="sheet-head"><div><p class="eyebrow">Подключение</p><h2>Диагностика</h2></div><button class="icon-button close">✕</button></div>
+    <p class="lead">Технические данные помогают понять, куда приложение отправляет команды.</p>
+    <pre class="diagnostic">Устройство: LEDnetWF (…:A4)
+Состояние: подключено
+Сервис: 0000fff0-0000-1000-8000-00805f9b34fb
+Запись: 0000fff3-0000-1000-8000-00805f9b34fb
+Последняя команда: RGB 255, 85, 77
+Ответ: запись выполнена</pre>
+    <button class="secondary" data-action="refresh">Обновить данные</button>
+  </template>
+  <template id="forget-template">
+    <div class="confirm">
+      <div class="confirm-icon">!</div><h2>Забыть эту ленту?</h2>
+      <p class="lead">LEDnetWF будет удалена из приложения. Чтобы управлять ей снова, потребуется новый поиск.</p>
+      <div class="row"><button class="secondary close">Отмена</button><button class="danger-button" data-action="forget">Забыть ленту</button></div>
+    </div>
+  </template>
+  <template id="color-template">
+    <div class="sheet-head"><div><p class="eyebrow">Точная настройка</p><h2>Свой цвет</h2></div><button class="icon-button close">✕</button></div>
+    <p class="lead">Водите по полю: по горизонтали меняется насыщенность, по вертикали — яркость.</p>
+    <div class="color-picker-area" id="picker-area" role="slider" tabindex="0" aria-label="Цветовое поле" aria-valuetext="Красный">
+      <span class="picker-cursor" id="picker-cursor"></span>
+    </div>
+    <div class="field-group"><label for="hue">Оттенок</label><input class="hue-slider" id="hue" type="range" min="0" max="360" value="2"></div>
+    <div class="exact-grid">
+      <div class="field-group"><label>R</label><input class="field rgb" type="number" min="0" max="255" value="255"></div>
+      <div class="field-group"><label>G</label><input class="field rgb" type="number" min="0" max="255" value="85"></div>
+      <div class="field-group"><label>B</label><input class="field rgb" type="number" min="0" max="255" value="77"></div>
+    </div>
+    <div class="field-group"><label>HEX</label><input class="field" id="hex" value="#FF554D" maxlength="7"></div>
+    <div class="row"><button class="secondary close">Отмена</button><button class="primary" data-action="apply">Применить цвет</button></div>
+  </template>
+
+  <script>
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+    const controlView = $('#control-view');
+    const deviceView = $('#device-view');
+    const menu = $('#menu');
+    const more = $('#more');
+    const overlay = $('#overlay');
+    const sheet = $('#sheet');
+    const toast = $('#toast');
+    const monitorSelect = $('#monitor-select');
+    const monitorTrigger = $('#monitor-trigger');
+    const monitorOptions = $('#monitor-options');
+    const colorStorageKey = 'glowlink-mockup-current-color';
+    let toastTimer;
+
+    function notify(text) {
+      clearTimeout(toastTimer);
+      toast.textContent = text;
+      toast.hidden = false;
+      toastTimer = setTimeout(() => { toast.hidden = true; }, 2200);
+    }
+    function showView(name) {
+      controlView.hidden = name !== 'control';
+      deviceView.hidden = name !== 'device';
+      $('#menu-wrap').hidden = name !== 'control';
+    }
+    function setColor(hex, name = 'Свой цвет', persist = true) {
+      hex = hex.toUpperCase();
+      $('#color-preview').style.background = hex;
+      $('#color-name').textContent = name;
+      $('#color-code').textContent = hex;
+      $$('.preset').forEach((button) => button.classList.toggle('active', button.dataset.color === hex));
+      if (persist) {
+        try { localStorage.setItem(colorStorageKey, JSON.stringify({ hex, name })); } catch (_) { /* prototype remains usable without storage */ }
+      }
+    }
+    try {
+      const savedColor = JSON.parse(localStorage.getItem(colorStorageKey));
+      if (savedColor && /^#[0-9a-f]{6}$/i.test(savedColor.hex)) setColor(savedColor.hex, savedColor.name, false);
+    } catch (_) { /* ignore malformed saved prototype data */ }
+    function closeModal() { overlay.hidden = true; }
+    function openModal(name) {
+      sheet.replaceChildren($(`#${name}-template`).content.cloneNode(true));
+      overlay.hidden = false;
+      menu.hidden = true;
+      $('.close', sheet)?.addEventListener('click', closeModal);
+      if (name === 'settings') $('[data-action="save"]', sheet).onclick = () => { closeModal(); notify('Настройки сохранены'); };
+      if (name === 'diagnostic') $('[data-action="refresh"]', sheet).onclick = (event) => { event.currentTarget.textContent = 'Данные обновлены'; notify('Диагностика обновлена'); };
+      if (name === 'forget') $('[data-action="forget"]', sheet).onclick = () => { closeModal(); showView('device'); notify('Лента забыта'); };
+      if (name === 'color') bindColorModal();
+    }
+    function bindColorModal() {
+      const rgb = $$('.rgb', sheet);
+      const hex = $('#hex', sheet);
+      const area = $('#picker-area', sheet);
+      const cursor = $('#picker-cursor', sheet);
+      const hue = $('#hue', sheet);
+      let saturation = .7;
+      let value = 1;
+      const clamp = (value) => Math.max(0, Math.min(255, Number(value) || 0));
+      const toHex = () => '#' + rgb.map((input) => clamp(input.value).toString(16).padStart(2, '0')).join('').toUpperCase();
+      const hsvToRgb = (h, s, v) => {
+        const c = v * s;
+        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = v - c;
+        const parts = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] :
+          h < 180 ? [0, c, x] : h < 240 ? [0, x, c] :
+          h < 300 ? [x, 0, c] : [c, 0, x];
+        return parts.map((part) => Math.round((part + m) * 255));
+      };
+      const rgbToHsv = (red, green, blue) => {
+        const [r, g, b] = [red, green, blue].map((item) => clamp(item) / 255);
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const delta = max - min;
+        let h = 0;
+        if (delta && max === r) h = 60 * (((g - b) / delta) % 6);
+        else if (delta && max === g) h = 60 * ((b - r) / delta + 2);
+        else if (delta) h = 60 * ((r - g) / delta + 4);
+        return [(h + 360) % 360, max ? delta / max : 0, max];
+      };
+      const paintArea = () => {
+        area.style.setProperty('--picker-hue', hue.value);
+        cursor.style.left = `${saturation * 100}%`;
+        cursor.style.top = `${(1 - value) * 100}%`;
+        area.setAttribute('aria-valuetext', hex.value.toUpperCase());
+      };
+      const applyHsv = () => {
+        const selected = hsvToRgb(Number(hue.value), saturation, value);
+        selected.forEach((channel, index) => { rgb[index].value = channel; });
+        hex.value = toHex();
+        paintArea();
+      };
+      const applyRgb = (channels) => {
+        const [h, s, v] = rgbToHsv(...channels);
+        if (s > 0) hue.value = Math.round(h);
+        saturation = s;
+        value = v;
+        hex.value = toHex();
+        paintArea();
+      };
+      const pickAt = (clientX, clientY) => {
+        const bounds = area.getBoundingClientRect();
+        saturation = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
+        value = 1 - Math.max(0, Math.min(1, (clientY - bounds.top) / bounds.height));
+        applyHsv();
+      };
+      area.addEventListener('pointerdown', (event) => {
+        area.setPointerCapture(event.pointerId);
+        pickAt(event.clientX, event.clientY);
+      });
+      area.addEventListener('pointermove', (event) => {
+        if (area.hasPointerCapture(event.pointerId)) pickAt(event.clientX, event.clientY);
+      });
+      area.addEventListener('keydown', (event) => {
+        const step = event.shiftKey ? .05 : .01;
+        if (event.key === 'ArrowLeft') saturation = Math.max(0, saturation - step);
+        else if (event.key === 'ArrowRight') saturation = Math.min(1, saturation + step);
+        else if (event.key === 'ArrowUp') value = Math.min(1, value + step);
+        else if (event.key === 'ArrowDown') value = Math.max(0, value - step);
+        else return;
+        event.preventDefault();
+        applyHsv();
+      });
+      hue.oninput = applyHsv;
+      rgb.forEach((input) => input.oninput = () => applyRgb(rgb.map((item) => item.value)));
+      hex.oninput = () => {
+        if (!/^#[0-9a-f]{6}$/i.test(hex.value)) return;
+        const channels = [1, 3, 5].map((index) => parseInt(hex.value.slice(index, index + 2), 16));
+        channels.forEach((channel, index) => { rgb[index].value = channel; });
+        applyRgb(channels);
+      };
+      applyRgb(rgb.map((input) => input.value));
+      $('[data-action="apply"]', sheet).onclick = () => {
+        setColor(/^#[0-9a-f]{6}$/i.test(hex.value) ? hex.value : toHex());
+        closeModal(); notify('Цвет применён');
+      };
+    }
+
+    $$('.tab').forEach((tab) => tab.onclick = () => {
+      const color = tab.dataset.tab === 'color';
+      $$('.tab').forEach((item) => item.classList.toggle('active', item === tab));
+      $('#tab-indicator').classList.toggle('screen', !color);
+      $('#color-panel').hidden = !color;
+      $('#screen-panel').hidden = color;
+    });
+    $$('.preset').forEach((button) => button.onclick = () => setColor(button.dataset.color, button.dataset.name));
+    function closeMonitorSelect() {
+      monitorSelect.classList.remove('open');
+      monitorOptions.hidden = true;
+      monitorTrigger.setAttribute('aria-expanded', 'false');
+    }
+    monitorTrigger.onclick = () => {
+      const open = !monitorSelect.classList.contains('open');
+      closeMonitorSelect();
+      if (open) {
+        monitorSelect.classList.add('open');
+        monitorOptions.hidden = false;
+        monitorTrigger.setAttribute('aria-expanded', 'true');
+      }
+    };
+    $$('.select-option', monitorOptions).forEach((option) => option.onclick = () => {
+      $$('.select-option', monitorOptions).forEach((item) => item.setAttribute('aria-selected', String(item === option)));
+      $('#monitor-value').textContent = option.dataset.value;
+      closeMonitorSelect();
+      monitorTrigger.focus();
+      notify('Монитор выбран');
+    });
+    monitorSelect.onkeydown = (event) => {
+      const options = $$('.select-option', monitorOptions);
+      const current = options.indexOf(document.activeElement);
+      if (event.key === 'Escape') { closeMonitorSelect(); monitorTrigger.focus(); }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (monitorOptions.hidden) monitorTrigger.click();
+        options[Math.min(current + 1, options.length - 1)].focus();
+      }
+      if (event.key === 'ArrowUp' && !monitorOptions.hidden) {
+        event.preventDefault();
+        options[Math.max(current - 1, 0)].focus();
+      }
+    };
+    $('#custom-color').onclick = () => openModal('color');
+    $('#power').onclick = () => {
+      const off = $('#power').classList.toggle('off');
+      $('#power span').textContent = off ? 'Выключено' : 'Включено';
+      $('#color-preview').style.opacity = off ? '.25' : '1';
+      notify(off ? 'Лента выключена' : 'Команда включения отправлена');
+    };
+    $('#sync').onclick = () => {
+      const running = $('#sync').classList.toggle('off');
+      $('#sync span').textContent = running ? 'Остановить синхронизацию' : 'Начать синхронизацию';
+      $('#sync-icon').setAttribute('d', running ? 'M6 6h12v12H6V6Z' : 'm8.25 5.25 9 6.75-9 6.75V5.25Z');
+      monitorTrigger.disabled = running;
+      if (running) closeMonitorSelect();
+      $('#sync-hint').textContent = running ? 'Идёт захват экрана. Ручной выбор цвета временно недоступен.' : 'Во время синхронизации ручной выбор цвета будет недоступен.';
+      notify(running ? 'Синхронизация запущена' : 'Синхронизация остановлена');
+    };
+    $('#connection-toggle').onclick = () => {
+      const offline = $('#link-dot').classList.toggle('offline');
+      $('#link-label').textContent = offline ? 'Лента не подключена' : 'Лента подключена';
+      $('#connection-toggle').textContent = offline ? 'Подключить' : 'Отключить';
+      notify(offline ? 'Лента отключена' : 'Подключение восстановлено');
+    };
+    more.onclick = () => { menu.hidden = !menu.hidden; more.setAttribute('aria-expanded', String(!menu.hidden)); };
+    $$('[data-modal]').forEach((button) => button.onclick = () => openModal(button.dataset.modal));
+    document.addEventListener('click', (event) => {
+      if (!$('#menu-wrap').contains(event.target)) menu.hidden = true;
+      if (!monitorSelect.contains(event.target)) closeMonitorSelect();
+    });
+    overlay.onclick = (event) => { if (event.target === overlay) closeModal(); };
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeModal(); });
+    $('#change-device').onclick = () => showView('device');
+    $('#device-back').onclick = () => showView('control');
+
+    function scan() {
+      $('#scan').hidden = true; $('#device-list').hidden = true; $('#scan-again').hidden = true;
+      $('#scan-state').innerHTML = '<div class="status busy"><i class="spinner"></i><span><strong>Ищем ленты…</strong><br>Обычно это занимает несколько секунд.</span></div>';
+      setTimeout(() => {
+        $('#scan-state').innerHTML = '<div class="status good"><span>✓</span><span>Найдено 3 устройства. Выберите свою ленту.</span></div>';
+        $('#device-list').hidden = false; $('#scan-again').hidden = false;
+      }, 900);
+    }
+    $('#scan').onclick = $('#scan-again').onclick = scan;
+    $$('.device-card').forEach((card) => card.onclick = () => {
+      $('#scan-state').innerHTML = `<div class="status busy"><i class="spinner"></i><span>Подключаемся к ${card.dataset.device}…</span></div>`;
+      $('#device-list').hidden = true;
+      setTimeout(() => { showView('control'); notify('Лента подключена'); }, 800);
+    });
+  </script>
+</body>
+</html>

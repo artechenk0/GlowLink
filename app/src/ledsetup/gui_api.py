@@ -62,6 +62,7 @@ class GetStateResult(TypedDict):
     device: DeviceDict | None
     connected: bool
     auto_connect: bool
+    color: list[int]
 
 
 class SettingsDict(TypedDict):
@@ -178,6 +179,7 @@ class JsApi:
             "device": payload["device"],
             "connected": payload["connected"],
             "auto_connect": payload["device"] is not None,
+            "color": list(self._settings.last_color),
         }
 
     def get_settings(self) -> SettingsDict:
@@ -283,7 +285,10 @@ class JsApi:
     def set_color(self, red: object, green: object, blue: object) -> Ack:
         if self._syncing:
             return {"ok": True}
-        self._pending = (coerce_rgb_byte(red), coerce_rgb_byte(green), coerce_rgb_byte(blue))
+        color = (coerce_rgb_byte(red), coerce_rgb_byte(green), coerce_rgb_byte(blue))
+        self._pending = color
+        self._settings = replace(self._settings, last_color=color)
+        save_settings(self._settings, path=self._settings_path)
         self._arm_flush()
         return {"ok": True}
 

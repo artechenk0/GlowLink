@@ -1,498 +1,240 @@
-/**
- * @typedef {Object} DeviceState
- * @property {string} address
- * @property {string} name
- */
-
-/**
- * @typedef {Object} UiState
- * @property {DeviceState | null} device
- * @property {boolean} connected
- * @property {boolean} [auto_connect]
- */
-
-/**
- * @typedef {Object} UiMessage
- * @property {string} text
- * @property {string} kind
- * @property {UiState} state
- */
-
-/**
- * @typedef {Object} ScanHit
- * @property {string} name
- * @property {string} address
- * @property {boolean} lednetwf
- * @property {number | null} rssi
- */
-
-/**
- * @typedef {Object} ScanEvent
- * @property {string} text
- * @property {string} kind
- * @property {UiState} state
- * @property {ScanHit[]} hits
- * @property {DeviceState | null} [device]
- */
-
-/**
- * @typedef {Object} LedBridge
- * @property {function(ScanEvent): void} onScan
- * @property {function(UiMessage): void} onSelected
- * @property {function(UiMessage): void} onMsg
- * @property {function(UiMessage): void} onGatt
- * @property {function(UiMessage): void} onForgot
- */
-
-const PRESETS = [
-  ["Красный", 255, 0, 0],
-  ["Зелёный", 0, 255, 0],
-  ["Синий", 0, 0, 255],
-  ["Белый", 255, 255, 255],
-];
-
-const hsv = { h: 0.02, s: 0.9, v: 1 };
-let dragging = null;
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 let syncing = false;
+let booting = true;
+let powerOn = true;
+let powerBusy = false;
+const COLOR_STORAGE_KEY = "ledsetup-current-color";
+const RECENT_COLORS_STORAGE_KEY = "ledsetup-recent-colors";
+const DEFAULT_COLOR = { r: 255, g: 85, b: 77, name: "Красный" };
+const storedColor = loadStoredColor();
+let currentColor = storedColor ?? DEFAULT_COLOR;
+const BLUETOOTH_ICON = '<svg class="bluetooth-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17m0 0 10-10"/></svg>';
 
-function api() {
-  return window.pywebview.api;
+// Keep the last selected color visible even before pywebview finishes booting.
+setColor(currentColor.r, currentColor.g, currentColor.b, currentColor.name);
+
+function api() { return window.pywebview.api; }
+function hex(r, g, b) { return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`.toUpperCase(); }
+function luminance(r, g, b) { return (r * 299 + g * 587 + b * 114) / 1000; }
+function validColor(value) {
+  return value && [value.r, value.g, value.b].every((channel) => Number.isInteger(channel) && channel >= 0 && channel <= 255);
 }
-
-function hsvToRgb(h, s, v) {
-  const i = Math.floor(h * 6);
-  const f = h * 6 - i;
-  const p = v * (1 - s);
-  const q = v * (1 - f * s);
-  const t = v * (1 - (1 - f) * s);
-  const table = [
-    [v, t, p],
-    [q, v, p],
-    [p, v, t],
-    [p, q, v],
-    [t, p, v],
-    [v, p, q],
-  ];
-  const [r, g, b] = table[i % 6];
-  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+function loadStoredColor() {
+  try {
+    const color = JSON.parse(localStorage.getItem(COLOR_STORAGE_KEY));
+    return validColor(color) ? color : null;
+  } catch (_) { return null; }
 }
-
-function rgbToHsv(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const d = max - min;
-  let h = 0;
-  if (d !== 0) {
-    if (max === r) h = ((g - b) / d) % 6;
-    else if (max === g) h = (b - r) / d + 2;
-    else h = (r - g) / d + 4;
-    h /= 6;
-    if (h < 0) h += 1;
-  }
-  const s = max === 0 ? 0 : d / max;
-  return [h, s, max];
+function loadRecentColors() {
+  try {
+    const colors = JSON.parse(localStorage.getItem(RECENT_COLORS_STORAGE_KEY));
+    return Array.isArray(colors) ? colors.filter(validColor).slice(0, 4) : [];
+  } catch (_) { return []; }
 }
-
-function rgbHex(r, g, b) {
-  return "#" + [r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("");
+function saveColor(color, remember) {
+  try {
+    localStorage.setItem(COLOR_STORAGE_KEY, JSON.stringify(color));
+    if (!remember) return;
+    const colors = loadRecentColors().filter((item) => hex(item.r, item.g, item.b) !== hex(color.r, color.g, color.b));
+    localStorage.setItem(RECENT_COLORS_STORAGE_KEY, JSON.stringify([color, ...colors].slice(0, 4)));
+  } catch (_) { /* The app remains usable when browser storage is unavailable. */ }
 }
-
-function luminance(r, g, b) {
-  return (r * 299 + g * 587 + b * 114) / 1000;
+function status(element, text, kind = "") {
+  element.textContent = text || "";
+  element.className = `status ${kind}`;
+  element.hidden = !text;
 }
-
-function setStatus(el, text, kind) {
-  el.textContent = text || "";
-  el.className = "status" + (kind ? " " + kind : "");
+function toast(text) { const el = $("#toast"); el.textContent = text; el.hidden = false; setTimeout(() => { el.hidden = true; }, 2200); }
+function setControlsEnabled(enabled) {
+  const colorControls = $$("#color-panel .preset, #custom-color, #power");
+  colorControls.forEach((control) => { control.disabled = !enabled || syncing; });
+  $("#sync").disabled = !enabled;
+  setMonitorEnabled(enabled && !syncing);
+  $("#control-view").setAttribute("aria-busy", String(!enabled));
 }
-
-function showDevice() {
-  document.body.classList.add("screen-device");
-  document.body.classList.remove("screen-color");
-  document.getElementById("view-device").hidden = false;
-  document.getElementById("view-color").hidden = true;
-  document.getElementById("top-actions").hidden = true;
+function setBooting(on) {
+  booting = on;
+  $("#boot-layer").hidden = !on;
+  $(".app").classList.toggle("booting", on);
+  setControlsEnabled(!on && Boolean(window.__ledConnected));
 }
-
-function showColor() {
-  document.body.classList.add("screen-color");
-  document.body.classList.remove("screen-device");
-  document.getElementById("view-device").hidden = true;
-  document.getElementById("view-color").hidden = false;
-  document.getElementById("top-actions").hidden = false;
-  sizePicker();
-  paintColor();
-  loadMonitors();
+function setPowerState(on) {
+  powerOn = on;
+  const button = $("#power");
+  button.classList.toggle("off", !on);
+  $("#power span").textContent = on ? "Включено" : "Выключено";
 }
-
-function paintColor() {
-  const [r, g, b] = hsvToRgb(hsv.h, hsv.s, hsv.v);
-  const hex = rgbHex(r, g, b);
-  const strip = document.getElementById("strip");
-  strip.style.background = hex;
-  strip.style.setProperty("--strip", hex);
-  strip.querySelector("span").style.color = luminance(r, g, b) > 160 ? "#111" : "#f4f1ec";
-  document.getElementById("rgb-readout").textContent = `${r}  ${g}  ${b}   ${hex.toUpperCase()}`;
+function setPowerBusy(on) {
+  powerBusy = on;
+  $("#power").disabled = on || booting || !window.__ledConnected;
 }
-
-function sizePicker() {
-  const sv = document.getElementById("sv");
-  const hue = document.getElementById("hue");
-  const box = document.querySelector(".picker");
-  const cssW = Math.max(160, Math.floor(box.clientWidth || 280));
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  sv.width = Math.round(cssW * dpr);
-  sv.height = Math.round(cssW * dpr);
-  hue.width = Math.round(cssW * dpr);
-  hue.height = Math.round(18 * dpr);
-  drawPicker();
+function setColor(r, g, b, name = "Свой цвет", send = false, remember = false) {
+  if (![r, g, b].every((value) => Number.isInteger(value) && value >= 0 && value <= 255)) return;
+  currentColor = { r, g, b, name };
+  saveColor(currentColor, remember);
+  const value = hex(r, g, b);
+  const preview = $("#color-preview");
+  preview.style.background = value;
+  preview.style.color = luminance(r, g, b) > 160 ? "#170d0d" : "#fff";
+  $("#color-name").textContent = name;
+  $("#color-code").textContent = value;
+  $$(".preset").forEach((item) => item.classList.toggle("active", item.dataset.color === value));
+  if (send && !syncing) api().set_color(r, g, b);
 }
-
-function drawPicker() {
-  const sv = document.getElementById("sv");
-  const hue = document.getElementById("hue");
-  const svx = sv.getContext("2d");
-  const hx = hue.getContext("2d");
-  const w = sv.width;
-  const h = sv.height;
-  const img = svx.createImageData(w, h);
-  const data = img.data;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const [r, g, b] = hsvToRgb(hsv.h, x / Math.max(w - 1, 1), 1 - y / Math.max(h - 1, 1));
-      const i = (y * w + x) * 4;
-      data[i] = r;
-      data[i + 1] = g;
-      data[i + 2] = b;
-      data[i + 3] = 255;
-    }
-  }
-  svx.putImageData(img, 0, 0);
-  svx.beginPath();
-  svx.arc(hsv.s * (w - 1), (1 - hsv.v) * (h - 1), 7, 0, Math.PI * 2);
-  svx.strokeStyle = "#111";
-  svx.lineWidth = 3;
-  svx.stroke();
-  svx.strokeStyle = "#fff";
-  svx.lineWidth = 1.5;
-  svx.stroke();
-
-  for (let x = 0; x < hue.width; x++) {
-    const [r, g, b] = hsvToRgb(x / Math.max(hue.width - 1, 1), 1, 1);
-    hx.fillStyle = rgbHex(r, g, b);
-    hx.fillRect(x, 0, 1, hue.height);
-  }
-  hx.strokeStyle = "#fff";
-  hx.lineWidth = 2;
-  const hxpos = hsv.h * (hue.width - 1);
-  hx.strokeRect(hxpos - 3, 1, 6, hue.height - 2);
+function showView(name) { $("#control-view").hidden = name !== "control"; $("#device-view").hidden = name !== "device"; $("#menu-wrap").hidden = name !== "control"; }
+function refreshState(state) {
+  if (!state) return;
+  const dot = $("#link-dot");
+  window.__ledConnected = Boolean(state.connected);
+  setControlsEnabled(!booting && window.__ledConnected);
+  if (!state.device) { $("#device-label").textContent = "лента не выбрана"; $("#link-label").textContent = "Нет устройства"; dot.className = "dot offline"; $("#connection-toggle").textContent = "Подключить"; return; }
+  $("#device-label").textContent = `${state.device.name || "без имени"} · ${state.device.address}`;
+  $("#link-label").textContent = state.connected ? "Лента подключена" : "Лента не подключена";
+  dot.className = state.connected ? "dot" : "dot offline";
+  $("#connection-toggle").textContent = state.connected ? "Отключить" : "Подключить";
 }
-
-function applyRgb(r, g, b, send) {
-  if (syncing && send) return;
-  const [h, s, v] = rgbToHsv(r, g, b);
-  hsv.h = h; hsv.s = s; hsv.v = v;
-  paintColor();
-  drawPicker();
-  if (send) sendColor();
-}
-
-function sendColor() {
-  if (syncing) return;
-  const [r, g, b] = hsvToRgb(hsv.h, hsv.s, hsv.v);
-  api().set_color(r, g, b);
-}
-
-let hueFrame = 0;
-
-function bindPicker(canvas, kind) {
-  const pos = (ev) => {
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
-    const y = Math.min(1, Math.max(0, (ev.clientY - rect.top) / rect.height));
-    if (kind === "sv") { hsv.s = x; hsv.v = 1 - y; }
-    else hsv.h = x;
-    paintColor();
-    if (kind === "hue" && !hueFrame) {
-      hueFrame = requestAnimationFrame(() => {
-        hueFrame = 0;
-        drawPicker();
-      });
-    }
-    sendColor();
-  };
-  canvas.addEventListener("pointerdown", (ev) => {
-    if (syncing) return;
-    canvas.setPointerCapture(ev.pointerId);
-    dragging = kind;
-    pos(ev);
-  });
-  canvas.addEventListener("pointermove", (ev) => { if (dragging === kind) pos(ev); });
-  canvas.addEventListener("pointerup", () => {
-    dragging = null;
-    drawPicker();
-  });
-}
-
-/**
- * @param {ScanHit[]} hits
- * @param {DeviceState | null} [selected]
- */
-function renderDevices(hits, selected) {
-  const root = document.getElementById("device-list");
-  root.innerHTML = "";
-  if (!hits.length) return;
+function escapeHtml(value) { return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;"); }
+function renderDevices(hits) {
+  const root = $("#device-list"); root.replaceChildren(); root.hidden = !hits.length;
   hits.forEach((hit) => {
-    const card = document.createElement("div");
-    card.className = "card" + (hit.lednetwf ? " likely" : "");
-    card.setAttribute("role", "button");
-    card.tabIndex = 0;
-    card.innerHTML =
-      (hit.lednetwf ? '<span class="badge">похоже на ленту</span>' : "") +
-      `<span class="name">${escapeHtml(hit.name || "без имени")}</span>` +
-      `<span class="addr">${escapeHtml(hit.address)}</span>`;
-    const pick = () => chooseDevice(hit.address);
-    card.addEventListener("click", pick);
-    card.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter" || ev.key === " ") {
-        ev.preventDefault();
-        pick();
-      }
-    });
-    if (selected && selected.address === hit.address) card.style.outline = "1px solid #8aa57a";
+    const card = document.createElement("button"); card.type = "button"; card.className = "device-card";
+    card.innerHTML = `<span class="device-mark">${BLUETOOTH_ICON}</span><span><strong>${escapeHtml(hit.name || "Неизвестное устройство")}</strong><small>${escapeHtml(hit.address)}</small></span>${hit.lednetwf ? '<span class="badge">Рекомендуем</span>' : `<span class="signal">${hit.rssi ?? ""} dBm</span>`}`;
+    card.onclick = () => { status($("#color-status"), "Подключаемся…", "busy"); api().select_device(hit.address); };
     root.appendChild(card);
   });
 }
-
-function escapeHtml(text) {
-  return String(text)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+function openModal(name) {
+  const sheet = $("#sheet"); sheet.replaceChildren($(`#${name}-template`).content.cloneNode(true)); $("#overlay").hidden = false; $("#menu").hidden = true;
+  $$(".close", sheet).forEach((button) => button.onclick = () => { $("#overlay").hidden = true; });
+  if (name === "settings") loadSettings();
+  if (name === "forget") $("[data-action=forget]", sheet).onclick = () => api().forget_device();
+  if (name === "color") bindColorModal();
 }
-
-function chooseDevice(address) {
-  setStatus(document.getElementById("device-status"), "Подключаемся…", "busy");
-  api().select_device(address);
-}
-
-function paintSyncPreview(r, g, b, running) {
-  const preview = document.getElementById("sync-preview");
-  const readout = document.getElementById("sync-rgb");
-  if (!running && (r === 0 && g === 0 && b === 0) && !readout.textContent) {
-    preview.style.background = "";
-    preview.querySelector("span").style.color = "";
-    readout.textContent = "";
-    return;
-  }
-  const hex = rgbHex(r, g, b);
-  preview.style.background = hex;
-  preview.querySelector("span").style.color = luminance(r, g, b) > 160 ? "#111" : "#f4f1ec";
-  readout.textContent = `${r}  ${g}  ${b}   ${hex.toUpperCase()}`;
-}
-
-function setSyncing(on, text, kind) {
-  syncing = on;
-  const view = document.getElementById("view-color");
-  view.classList.toggle("is-sync", on);
-  const btn = document.getElementById("btn-sync");
-  btn.textContent = on ? "Остановить" : "Экран → лента";
-  document.getElementById("monitor-select").disabled = on;
-  const presets = document.getElementById("presets");
-  presets.querySelectorAll("button").forEach((el) => { el.disabled = on; });
-  if (text) setStatus(document.getElementById("sync-status"), text, kind);
-}
-
-async function loadMonitors() {
-  const sel = document.getElementById("monitor-select");
-  const data = await api().list_monitors();
-  sel.innerHTML = "";
-  (data.monitors || []).forEach((item) => {
-    const opt = document.createElement("option");
-    opt.value = item.id;
-    opt.textContent = item.label;
-    sel.appendChild(opt);
+async function loadSettings() { const settings = await api().get_settings(); $("#set-scan").value = settings.scan_timeout; $("#set-conn").value = settings.connect_timeout; $("[data-action=save]").onclick = async () => { const result = await api().save_settings($("#set-scan").value, $("#set-conn").value, false); if (result.kind === "ok") { $("#overlay").hidden = true; toast("Настройки сохранены"); } else { status($("#set-status"), result.text, result.kind); } }; }
+function bindColorModal() {
+  const area = $("#picker-area"), cursor = $("#picker-cursor"), hue = $("#hue"), rgb = $$(".rgb"), input = $("#hex");
+  let saturation = 0, value = 1;
+  const clamp = (number) => Math.max(0, Math.min(255, Math.round(Number(number) || 0)));
+  const hsvToRgb = (h, s, v) => {
+    const c = v * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = v - c;
+    const channels = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+    return channels.map((channel) => Math.round((channel + m) * 255));
+  };
+  const rgbToHsv = (r, g, b) => {
+    const [red, green, blue] = [r, g, b].map((channel) => clamp(channel) / 255);
+    const max = Math.max(red, green, blue), min = Math.min(red, green, blue), delta = max - min;
+    let h = 0;
+    if (delta && max === red) h = 60 * (((green - blue) / delta) % 6);
+    else if (delta && max === green) h = 60 * ((blue - red) / delta + 2);
+    else if (delta) h = 60 * ((red - green) / delta + 4);
+    return [(h + 360) % 360, max ? delta / max : 0, max];
+  };
+  const paint = () => {
+    area.style.setProperty("--picker-hue", hue.value);
+    cursor.style.left = `${saturation * 100}%`;
+    cursor.style.top = `${(1 - value) * 100}%`;
+  };
+  const applyHsv = () => {
+    const channels = hsvToRgb(Number(hue.value), saturation, value);
+    channels.forEach((channel, index) => { rgb[index].value = channel; });
+    input.value = hex(...channels);
+    paint();
+  };
+  const applyRgb = (channels) => {
+    const values = channels.map(clamp);
+    values.forEach((channel, index) => { rgb[index].value = channel; });
+    const [selectedHue, selectedSaturation, selectedValue] = rgbToHsv(...values);
+    hue.value = Math.round(selectedHue);
+    saturation = selectedSaturation;
+    value = selectedValue;
+    input.value = hex(...values);
+    paint();
+  };
+  const pickAt = (event) => {
+    const rect = area.getBoundingClientRect();
+    saturation = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    value = 1 - Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+    applyHsv();
+  };
+  area.onpointerdown = (event) => { area.setPointerCapture(event.pointerId); pickAt(event); };
+  area.onpointermove = (event) => { if (area.hasPointerCapture(event.pointerId)) pickAt(event); };
+  hue.oninput = applyHsv;
+  rgb.forEach((item) => item.oninput = () => applyRgb(rgb.map((field) => field.value)));
+  input.oninput = () => {
+    if (!/^#[0-9a-f]{6}$/i.test(input.value)) return;
+    applyRgb([1, 3, 5].map((index) => parseInt(input.value.slice(index, index + 2), 16)));
+  };
+  const recent = $("#recent-colors");
+  const recentList = $("#recent-colors-list");
+  const colors = loadRecentColors();
+  recent.hidden = !colors.length;
+  colors.forEach((color) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "recent-color";
+    button.style.background = hex(color.r, color.g, color.b);
+    button.title = hex(color.r, color.g, color.b);
+    button.setAttribute("aria-label", `Выбрать ${button.title}`);
+    button.onclick = () => applyRgb([color.r, color.g, color.b]);
+    recentList.appendChild(button);
   });
-  if (data.selected_id) sel.value = data.selected_id;
-  if (data.note) setStatus(document.getElementById("sync-status"), data.note, "info");
+  $("[data-action=apply]").onclick = () => {
+    const values = rgb.map((field) => clamp(field.value));
+    setColor(...values, "Свой цвет", true, true);
+    $("#overlay").hidden = true;
+    toast("Цвет применён");
+  };
+  applyRgb([currentColor.r, currentColor.g, currentColor.b]);
 }
-
-function goColor() {
-  showColor();
-  api().get_state().then((state) => refreshHeader(state));
-}
-
-/** @param {UiState | null | undefined} state */
-function refreshHeader(state) {
-  if (!state) return;
-  const dot = document.getElementById("link-dot");
-  const link = document.getElementById("link-text");
-  const label = document.getElementById("device-label");
-  const toggle = document.getElementById("btn-toggle");
-  if (!state.device) {
-    label.textContent = "лента не выбрана";
-    link.textContent = "Нет устройства";
-    dot.className = "dot off";
-    toggle.textContent = "Подключить";
-    return;
-  }
-  label.textContent = `${state.device.name || "без имени"} · ${state.device.address}`;
-  if (state.connected) {
-    link.textContent = "Подключено";
-    dot.className = "dot on";
-    toggle.textContent = "Отключить";
-  } else {
-    link.textContent = "Не подключено";
-    dot.className = "dot";
-    toggle.textContent = "Подключить";
-  }
-}
-
-function closeSheet() {
-  document.getElementById("overlay").hidden = true;
-}
-
-function openSheet(html) {
-  document.getElementById("sheet").innerHTML = html;
-  document.getElementById("overlay").hidden = false;
-  const close = document.getElementById("sheet-close");
-  if (close) close.addEventListener("click", closeSheet);
-}
-
-/** @type {LedBridge} */
+function setMonitorEnabled(enabled) { const trigger = $("#monitor-trigger"); const options = $("#monitor-options"); trigger.disabled = !enabled; trigger.setAttribute("aria-expanded", String(enabled && !options.hidden)); if (!enabled) { options.hidden = true; $("#monitor-select").classList.remove("open"); } }
+function setSyncing(on, text, kind) { syncing = on; $("#sync").classList.toggle("off", on); $("#sync span").textContent = on ? "Остановить синхронизацию" : "Начать синхронизацию"; setMonitorEnabled(!on && !booting && Boolean(window.__ledConnected)); $("#sync-hint").textContent = text || "Во время синхронизации ручной выбор цвета будет недоступен."; if (text) status($("#color-status"), text, kind); }
+async function loadMonitors() { const data = await api().list_monitors(); const options = $("#monitor-options"); options.replaceChildren(); const monitors = data.monitors || []; const selected = monitors.find((monitor) => monitor.id === data.selected_id) || monitors[0]; monitors.forEach((monitor) => { const option = document.createElement("button"); option.type = "button"; option.className = "select-option"; option.dataset.value = monitor.id; option.textContent = monitor.label; option.setAttribute("aria-selected", String(selected?.id === monitor.id)); option.onclick = () => { if (syncing || booting || !window.__ledConnected) return; $("#monitor-value").textContent = monitor.label; options.hidden = true; $("#monitor-select").classList.remove("open"); $("#monitor-trigger").setAttribute("aria-expanded", "false"); $$(".select-option", options).forEach((item) => item.setAttribute("aria-selected", String(item === option))); api().select_monitor(monitor.id); }; options.appendChild(option); }); $("#monitor-value").textContent = selected?.label || "Мониторы не найдены"; }
 window.__led = {
-  /** @param {ScanEvent} result */
-  onScan(result) {
-    const btn = document.getElementById("btn-scan");
-    btn.disabled = false;
-    btn.textContent = "Найти ленту";
-    renderDevices(result.hits || [], result.device);
-    setStatus(document.getElementById("device-status"), result.text, result.kind);
-  },
-  /** @param {UiMessage} msg */
-  onSelected(msg) {
-    goColor();
-    setStatus(document.getElementById("color-status"), msg.text, msg.kind);
-    refreshHeader(msg.state);
-  },
-  /** @param {UiMessage} msg */
-  onMsg(msg) {
-    setStatus(document.getElementById("color-status"), msg.text, msg.kind);
-    refreshHeader(msg.state);
-  },
-  /** @param {UiMessage} msg */
-  onGatt(msg) {
-    if (msg.kind === "err") {
-      setStatus(document.getElementById("color-status"), msg.text, "err");
+  onScan(result) { $("#scan").disabled = false; $("#scan").textContent = "Найти ленту"; renderDevices(result.hits || []); const state = $("#scan-state"); state.innerHTML = result.kind === "err" ? `<div class="status">${escapeHtml(result.text)}</div>` : `<div class="status good">✓ ${escapeHtml(result.text || "Выберите найденную ленту")}</div>`; $("#scan-again").hidden = false; },
+  onSelected(message) { showView("control"); refreshState(message.state); setColor(currentColor.r, currentColor.g, currentColor.b, currentColor.name, true); status($("#color-status"), ""); },
+  onMsg(message) {
+    refreshState(message.state);
+    if (powerBusy && message.kind === "err") { setPowerState(powerOn); setPowerBusy(false); }
+    if (powerBusy && message.text?.startsWith("Лента выключена")) { setPowerState(false); setPowerBusy(false); }
+    if (powerBusy && message.text?.startsWith("Включение (гипотеза)")) { setPowerState(true); setPowerBusy(false); }
+    if (message.text?.startsWith("Подключено")) {
+      setBooting(false);
+      setColor(currentColor.r, currentColor.g, currentColor.b, currentColor.name, true);
+      status($("#color-status"), "");
       return;
     }
-    openSheet(`<h3>GATT</h3><pre>${escapeHtml(msg.text)}</pre><div class="row"><button class="ghost" id="sheet-close">Закрыть</button></div>`);
-  },
-  /** @param {UiMessage} msg */
-  onForgot(msg) {
-    closeSheet();
-    setSyncing(false, "", "");
-    showDevice();
-    setStatus(document.getElementById("device-status"), msg.text, msg.kind);
-    refreshHeader(msg.state);
-  },
-  /** @param {{text: string, kind: string, state: UiState, running: boolean, r: number, g: number, b: number}} ev */
-  onSync(ev) {
-    setSyncing(ev.running, ev.text, ev.kind);
-    paintSyncPreview(ev.r, ev.g, ev.b, ev.running);
-    refreshHeader(ev.state);
-    if (ev.kind === "err") {
-      setStatus(document.getElementById("color-status"), ev.text, "err");
+    if (message.text?.startsWith("Включение (гипотеза)")) return;
+    if (message.text?.includes("GATT ")) {
+      toast("Техническая диагностика скрыта из основного окна");
+      return;
     }
+    if (message.kind === "err") setBooting(false);
+    status($("#color-status"), message.text, message.kind);
   },
+  onGatt(message) { if (message.kind === "err") status($("#color-status"), message.text, "err"); },
+  onForgot(message) { $("#overlay").hidden = true; showView("device"); status($("#scan-state"), message.text, message.kind); },
+  onSync(event) { setSyncing(event.running, event.text, event.kind); if ([event.r, event.g, event.b].every((channel) => Number.isInteger(channel))) { $("#screen-preview").style.background = hex(event.r, event.g, event.b); $("#screen-code").textContent = hex(event.r, event.g, event.b); } refreshState(event.state); },
 };
-
 window.addEventListener("pywebviewready", async () => {
-  PRESETS.forEach(([name, r, g, b]) => {
-    const el = document.createElement("button");
-    el.type = "button";
-    el.className = "preset";
-    el.innerHTML = `<div class="swatch" style="background:${rgbHex(r, g, b)}"></div>${name}`;
-    el.addEventListener("click", () => applyRgb(r, g, b, true));
-    document.getElementById("presets").appendChild(el);
-  });
-  bindPicker(document.getElementById("sv"), "sv");
-  bindPicker(document.getElementById("hue"), "hue");
-
-  document.getElementById("btn-scan").addEventListener("click", () => {
-    const btn = document.getElementById("btn-scan");
-    btn.disabled = true;
-    btn.textContent = "Ищем…";
-    setStatus(document.getElementById("device-status"), "Ищем устройства рядом…", "busy");
-    api().scan();
-  });
-
-  document.getElementById("btn-back").addEventListener("click", () => {
-    setSyncing(false, "", "");
-    api().stop_sync();
-    showDevice();
-  });
-  document.getElementById("btn-toggle").addEventListener("click", () => {
-    setStatus(document.getElementById("color-status"), "Секунду…", "busy");
-    api().toggle_connection();
-  });
-  document.getElementById("btn-off").addEventListener("click", () => api().power_off());
-  document.getElementById("btn-on").addEventListener("click", () => api().power_on());
-  document.getElementById("btn-sync").addEventListener("click", () => {
-    if (syncing) api().stop_sync();
-    else {
-      setStatus(document.getElementById("sync-status"), "Запускаем захват…", "busy");
-      api().start_sync();
-    }
-  });
-  document.getElementById("monitor-select").addEventListener("change", (ev) => {
-    api().select_monitor(ev.target.value);
-  });
-  document.getElementById("overlay").addEventListener("click", (ev) => {
-    if (ev.target.id === "overlay") closeSheet();
-  });
-  document.getElementById("btn-gatt").addEventListener("click", () => {
-    setStatus(document.getElementById("color-status"), "Читаем GATT…", "busy");
-    api().gatt();
-  });
-  document.getElementById("btn-settings").addEventListener("click", async () => {
-    const s = await api().get_settings();
-    openSheet(`
-      <h3>Настройки</h3>
-      <label>Поиск ленты, секунды</label>
-      <input id="set-scan" type="text" value="${s.scan_timeout}" />
-      <label>Подключение, секунды</label>
-      <input id="set-conn" type="text" value="${s.connect_timeout}" />
-      <label class="check"><input id="set-verbose" type="checkbox" ${s.verbose ? "checked" : ""} /> Подробный GATT после команд</label>
-      <div class="row">
-        <button class="primary" id="set-save">Сохранить</button>
-        <button class="ghost" id="set-forget">Забыть ленту</button>
-        <button class="text-btn" id="sheet-close">Закрыть</button>
-      </div>
-    `);
-    document.getElementById("set-save").addEventListener("click", async () => {
-      const msg = await api().save_settings(
-        document.getElementById("set-scan").value,
-        document.getElementById("set-conn").value,
-        document.getElementById("set-verbose").checked
-      );
-      closeSheet();
-      setStatus(document.getElementById("color-status"), msg.text, msg.kind);
-    });
-    document.getElementById("set-forget").addEventListener("click", () => {
-      api().forget_device();
-    });
-  });
-
+  $$("[data-tab]").forEach((tab) => tab.onclick = () => { const screen = tab.dataset.tab === "screen"; $$(".tab").forEach((item) => item.classList.toggle("active", item === tab)); $("#tab-indicator").classList.toggle("screen", screen); $("#color-panel").hidden = screen; $("#screen-panel").hidden = !screen; if (screen) loadMonitors(); });
+  $$(".preset").forEach((button) => button.onclick = () => { const value = button.dataset.color.slice(1).match(/../g).map((item) => parseInt(item, 16)); setColor(...value, button.dataset.name, true, true); });
+  $("#power").onclick = () => { if (powerBusy || booting || !window.__ledConnected) return; const next = !powerOn; setPowerBusy(true); $("#power span").textContent = next ? "Включение…" : "Выключение…"; const request = next ? api().power_on() : api().power_off(); Promise.resolve(request).catch(() => { setPowerState(powerOn); setPowerBusy(false); status($("#color-status"), "Не удалось отправить команду питания.", "err"); }); };
+  $("#sync").onclick = () => syncing ? api().stop_sync() : api().start_sync();
+  $("#connection-toggle").onclick = () => api().toggle_connection();
+  $("#more").onclick = () => { const menu = $("#menu"); menu.hidden = !menu.hidden; $("#more").setAttribute("aria-expanded", String(!menu.hidden)); };
+  $$('[data-modal]').forEach((button) => button.onclick = () => openModal(button.dataset.modal));
+  $("#custom-color").onclick = () => openModal("color");
+  $("#change-device").onclick = () => { if (syncing) api().stop_sync(); showView("device"); };
+  $("#device-back").onclick = () => showView("control");
+  $("#scan").onclick = $("#scan-again").onclick = () => { $("#scan").disabled = true; $("#scan").textContent = "Ищем…"; status($("#scan-state"), "Ищем устройства рядом…", "busy"); api().scan(); };
+  $("#monitor-trigger").onclick = () => { if (syncing || booting || !window.__ledConnected) return; const options = $("#monitor-options"); options.hidden = !options.hidden; $("#monitor-select").classList.toggle("open", !options.hidden); $("#monitor-trigger").setAttribute("aria-expanded", String(!options.hidden)); };
+  $("#overlay").onclick = (event) => { if (event.target.id === "overlay") $("#overlay").hidden = true; }; document.addEventListener("keydown", (event) => { if (event.key === "Escape") $("#overlay").hidden = true; });
   const state = await api().get_state();
-  refreshHeader(state);
-  if (state.device) {
-    showColor();
-    if (state.auto_connect) api().connect();
-  } else {
-    showDevice();
-  }
-  paintColor();
-  sizePicker();
+  if (!storedColor && Array.isArray(state.color) && state.color.length === 3) setColor(...state.color, "Свой цвет");
+  refreshState(state);
+  showView(state.device ? "control" : "device");
+  if (state.device && state.auto_connect) { status($("#color-status"), "Подключаемся…", "busy"); api().connect(); } else setBooting(false);
 });

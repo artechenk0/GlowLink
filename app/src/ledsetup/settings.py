@@ -32,6 +32,7 @@ class AppSettings:
     connect_timeout: float = DEFAULT_CONNECT_TIMEOUT
     verbose_gatt_after_write: bool = False
     monitor_id: str = ""
+    last_color: tuple[int, int, int] = (255, 85, 77)
 
 
 def default_settings_path() -> Path:
@@ -48,6 +49,16 @@ def _as_timeout(value: object, field: str) -> float:
     if number <= 0 or number > MAX_TIMEOUT_SEC:
         raise SettingsError(f"{field}: таймаут должен быть в диапазоне 0 < t ≤ {MAX_TIMEOUT_SEC:g}")
     return number
+
+
+def _as_color(value: object) -> tuple[int, int, int]:
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return (255, 85, 77)
+    if any(isinstance(channel, bool) or not isinstance(channel, int) for channel in value):
+        return (255, 85, 77)
+    if any(channel < 0 or channel > 255 for channel in value):
+        return (255, 85, 77)
+    return (value[0], value[1], value[2])
 
 
 def parse_timeout_input(raw: str, field: str = "таймаут") -> float:
@@ -95,6 +106,7 @@ def load_settings(path: Path | None = None) -> AppSettings:
         connect_timeout=connect,
         verbose_gatt_after_write=verbose,
         monitor_id=monitor_id.strip(),
+        last_color=_as_color(raw.get("last_color", (255, 85, 77))),
     )
 
 
